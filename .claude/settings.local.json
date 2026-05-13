@@ -1,0 +1,12 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(Get-ChildItem -Path \"C:\\\\Users\\\\WILLY\\\\app_universitaria\" -Recurse -Force)",
+      "Bash(Select-Object FullName)",
+      "Bash(Sort-Object FullName)",
+      "Bash(flutter analyze *)",
+      "Bash(where flutter *)",
+      "Read(//c/Users/WILLY/**)"
+    ]
+  }
+}

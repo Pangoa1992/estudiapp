@@ -1,0 +1,86 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ── Helper ────────────────────────────────────────────────────────────────
+    function esAutenticado() {
+      return request.auth != null;
+    }
+
+    function esPropietario(userId) {
+      return request.auth.uid == userId;
+    }
+
+    function esAdmin() {
+      return request.auth.token.email == 'pasminio456@gmail.com';
+    }
+
+    // ── Perfiles ──────────────────────────────────────────────────────────────
+    // El admin puede leer todos los perfiles (panel de testers).
+    // Cada usuario solo puede leer/escribir su propio perfil.
+    match /perfiles/{userId} {
+      allow read:  if esAutenticado() && (esPropietario(userId) || esAdmin());
+      allow write: if esAutenticado() && esPropietario(userId);
+    }
+
+    // ── Hábitos ───────────────────────────────────────────────────────────────
+    match /habitos/{docId} {
+      allow read, write: if esAutenticado()
+                         && resource.data.userId == request.auth.uid;
+      allow create: if esAutenticado()
+                    && request.resource.data.userId == request.auth.uid;
+    }
+
+    // ── Historial de hábitos ──────────────────────────────────────────────────
+    match /historial_habitos/{docId} {
+      allow read, write: if esAutenticado()
+                         && resource.data.userId == request.auth.uid;
+      allow create: if esAutenticado()
+                    && request.resource.data.userId == request.auth.uid;
+    }
+
+    // ── Exámenes ──────────────────────────────────────────────────────────────
+    match /examenes/{docId} {
+      allow read, write: if esAutenticado()
+                         && resource.data.userId == request.auth.uid;
+      allow create: if esAutenticado()
+                    && request.resource.data.userId == request.auth.uid;
+    }
+
+    // ── Cursos ────────────────────────────────────────────────────────────────
+    match /cursos/{docId} {
+      allow read, write: if esAutenticado()
+                         && resource.data.userId == request.auth.uid;
+      allow create: if esAutenticado()
+                    && request.resource.data.userId == request.auth.uid;
+    }
+
+    // ── Logros ────────────────────────────────────────────────────────────────
+    match /logros/{userId} {
+      allow read, write: if esAutenticado() && esPropietario(userId);
+    }
+
+    // ── Historial IA ─────────────────────────────────────────────────────────
+    match /historial_ia/{userId} {
+      allow read, write: if esAutenticado() && esPropietario(userId);
+
+      match /mensajes/{mensajeId} {
+        allow read, write: if esAutenticado() && esPropietario(userId);
+      }
+    }
+
+    // ── Ciclos académicos ─────────────────────────────────────────────────────
+    match /ciclos_academicos/{docId} {
+      allow read, write: if esAutenticado()
+                         && resource.data.userId == request.auth.uid;
+      allow create: if esAutenticado()
+                    && request.resource.data.userId == request.auth.uid;
+    }
+
+    // Denegar todo lo demás por defecto
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
