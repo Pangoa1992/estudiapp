@@ -1,5 +1,7 @@
+import 'dart:ui' show PlatformDispatcher;
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:google_mobile_ads/google_mobile_ads.dart';
@@ -28,10 +30,30 @@ import 'racha_heatmap_page.dart';
 import 'tema_service.dart';
 import 'cache_service.dart';
 import 'widget_service.dart';
+import 'srs_decks_page.dart';
+import 'calificaciones_page.dart';
+import 'bienestar_page.dart';
+import 'feynman_page.dart';
+import 'casos_reales_page.dart';
+import 'aula_virtual_page.dart';
+import 'admision_page.dart';
+import 'academia_page.dart';
+import 'premium_page.dart';
+import 'pdf_simulacro_page.dart';
+import 'grupo_estudio_page.dart';
+import 'services/fcm_service.dart';
+import 'bienvenida_dialog.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+
+  // Crashlytics — captura todos los crashes automáticamente
+  FlutterError.onError = FirebaseCrashlytics.instance.recordFlutterFatalError;
+  PlatformDispatcher.instance.onError = (error, stack) {
+    FirebaseCrashlytics.instance.recordError(error, stack, fatal: true);
+    return true;
+  };
 
   // Caché offline Firestore — 50 MB
   FirebaseFirestore.instance.settings = const Settings(
@@ -154,6 +176,7 @@ class _HomePageState extends State<HomePage> {
   final _db = FirebaseFirestore.instance;
   BannerAd? _bannerAd;
   bool _bannerAdReady = false;
+  bool _bannerAdFailed = false;
   int _rachaWidget = 0;
   List<String> _habitosWidget = [];
 
@@ -161,8 +184,12 @@ class _HomePageState extends State<HomePage> {
   void initState() {
     super.initState();
     RachaService().verificarRacha();
+    unawaited(FcmService.inicializar()); // push notifications (no bloquea arranque)
     _activarRecordatorios();
-    WidgetsBinding.instance.addPostFrameCallback((_) => _mostrarAvisoBateria());
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      await _mostrarAvisoBateria();
+      _mostrarBienvenida();
+    });
     _bannerAd = BannerAd(
       adUnitId: 'ca-app-pub-6530298594670805/7501861973',
       request: const AdRequest(),
@@ -171,7 +198,10 @@ class _HomePageState extends State<HomePage> {
         onAdLoaded: (_) => setState(() => _bannerAdReady = true),
         onAdFailedToLoad: (ad, error) {
           ad.dispose();
-          _bannerAdReady = false;
+          setState(() {
+            _bannerAdReady = false;
+            _bannerAdFailed = true;
+          });
         },
       ),
     )..load();
@@ -235,6 +265,25 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
+  Future<void> _mostrarBienvenida() async {
+    if (user == null || !mounted) return;
+    try {
+      final doc = await _db.collection('perfiles').doc(user!.uid).get();
+      final data = doc.data();
+      final racha = (data?['racha'] as num? ?? 0).toInt();
+      final escudos = (data?['escudos'] as num? ?? 0).toInt();
+      if (!mounted) return;
+      await BienvenidaDialog.mostrarSiCorresponde(
+        context: context,
+        nombre: _nombreUsuario,
+        racha: racha,
+        escudos: escudos,
+      );
+    } catch (e) {
+      debugPrint('[HomePage] Error al mostrar bienvenida: $e');
+    }
+  }
+
   Future<void> _activarRecordatorios() async {
     try {
       if (user == null) return;
@@ -246,7 +295,7 @@ class _HomePageState extends State<HomePage> {
 
       final habitosSnap = await _db
           .collection('habitos')
-          .where('userId', isEqualTo: user!.uid)
+          .where('userId', isEqualTo: user?.uid ?? '')
           .get();
       for (final h in habitosSnap.docs) {
         final data = h.data();
@@ -262,9 +311,10 @@ class _HomePageState extends State<HomePage> {
 
       final examenesSnap = await _db
           .collection('examenes')
-          .where('userId', isEqualTo: user!.uid)
+          .where('userId', isEqualTo: user?.uid ?? '')
           .where('completado', isEqualTo: false)
           .get();
+      final examenesProximos = <Map<String, dynamic>>[];
       for (final e in examenesSnap.docs) {
         final data = e.data();
         final fechaRaw = data['fecha'];
@@ -276,8 +326,16 @@ class _HomePageState extends State<HomePage> {
             curso: data['curso'] ?? '',
             fecha: fecha,
           );
+          examenesProximos.add({'curso': data['curso'] ?? '', 'fecha': fecha});
         }
       }
+
+      // Notificaciones inteligentes según exámenes y racha
+      final rachaInt = (racha as num).toInt();
+      await NotificacionesService.programarNotificacionesInteligentes(
+        examenes: examenesProximos,
+        racha: rachaInt,
+      );
     } catch (e) {
       debugPrint('[HomePage] Error al activar recordatorios: $e');
     }
@@ -310,7 +368,17 @@ class _HomePageState extends State<HomePage> {
               width: _bannerAd!.size.width.toDouble(),
               child: AdWidget(ad: _bannerAd!),
             )
-          : null,
+          : _bannerAdFailed
+              ? Container(
+                  height: 32,
+                  color: const Color(0xFF0F0F14),
+                  alignment: Alignment.center,
+                  child: const Text(
+                    'Anuncio no disponible en este momento',
+                    style: TextStyle(color: Colors.white24, fontSize: 11),
+                  ),
+                )
+              : null,
       body: SafeArea(
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(20),
@@ -375,25 +443,60 @@ class _HomePageState extends State<HomePage> {
               ),
             ),
             const SizedBox(width: 10),
-            GestureDetector(
-              onTap: () => Navigator.push(
-                  context, MaterialPageRoute(builder: (_) => const PerfilPage())),
-              child: CircleAvatar(
-                radius: 22,
-                backgroundColor: const Color(0xFF7C6AF7),
-                backgroundImage: user?.photoURL != null
-                    ? NetworkImage(user!.photoURL!)
-                    : null,
-                child: user?.photoURL == null
-                    ? Text(
-                        _nombreUsuario.isNotEmpty
-                            ? _nombreUsuario[0].toUpperCase()
-                            : 'U',
-                        style: const TextStyle(
-                            color: Colors.white, fontWeight: FontWeight.bold),
-                      )
-                    : null,
-              ),
+            StreamBuilder<DocumentSnapshot>(
+              stream: (user?.uid ?? '').isNotEmpty
+                  ? _db.collection('perfiles').doc(user!.uid).snapshots()
+                  : const Stream.empty(),
+              builder: (context, perfilSnap) {
+                final data = perfilSnap.data?.data() as Map<String, dynamic>?;
+                final isPremium = data?['isPremium'] == true;
+                final carrera = data?['carrera'] as String? ?? '';
+                return GestureDetector(
+                  onTap: () => Navigator.push(context,
+                      MaterialPageRoute(builder: (_) => const PerfilPage())),
+                  child: Stack(
+                    clipBehavior: Clip.none,
+                    children: [
+                      CircleAvatar(
+                        radius: 22,
+                        backgroundColor: const Color(0xFF7C6AF7),
+                        backgroundImage: user?.photoURL != null
+                            ? NetworkImage(user!.photoURL!)
+                            : null,
+                        child: user?.photoURL == null
+                            ? Text(
+                                _nombreUsuario.isNotEmpty
+                                    ? _nombreUsuario[0].toUpperCase()
+                                    : 'U',
+                                style: const TextStyle(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.bold),
+                              )
+                            : null,
+                      ),
+                      if (isPremium)
+                        const Positioned(
+                          right: -2,
+                          bottom: -2,
+                          child: Text('⭐', style: TextStyle(fontSize: 13)),
+                        ),
+                      if (!isPremium && carrera.isEmpty)
+                        Positioned(
+                          right: -2,
+                          top: -2,
+                          child: Container(
+                            width: 10,
+                            height: 10,
+                            decoration: const BoxDecoration(
+                              color: Color(0xFFF7A26A),
+                              shape: BoxShape.circle,
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+                );
+              },
             ),
           ],
         ),
@@ -403,10 +506,13 @@ class _HomePageState extends State<HomePage> {
 
   Widget _buildStreakBanner() {
     return StreamBuilder<DocumentSnapshot>(
-      stream: _db.collection('perfiles').doc(user!.uid).snapshots(),
+      stream: (user?.uid ?? '').isNotEmpty
+          ? _db.collection('perfiles').doc(user!.uid).snapshots()
+          : const Stream.empty(),
       builder: (context, snapshot) {
         final perfilData = snapshot.data?.data() as Map<String, dynamic>?;
         final racha = perfilData?['racha'] ?? 0;
+        final escudos = (perfilData?['escudos'] as num? ?? 0).toInt();
 
         // Actualiza cache y widget con la racha fresca
         if (snapshot.hasData) {
@@ -443,8 +549,21 @@ class _HomePageState extends State<HomePage> {
                               color: Colors.white,
                               fontSize: 20,
                               fontWeight: FontWeight.bold)),
-                      const Text('Sigue así, no la pierdas',
-                          style: TextStyle(color: Colors.white54, fontSize: 12)),
+                      Row(children: [
+                        Icon(
+                          Icons.shield_outlined,
+                          size: 13,
+                          color: escudos > 0 ? const Color(0xFF5DE0C5) : Colors.white24,
+                        ),
+                        const SizedBox(width: 4),
+                        Text(
+                          escudos > 0 ? 'Escudo disponible' : 'Sin escudo esta semana',
+                          style: TextStyle(
+                            color: escudos > 0 ? const Color(0xFF5DE0C5) : Colors.white38,
+                            fontSize: 11,
+                          ),
+                        ),
+                      ]),
                     ]),
                   ]),
                   GestureDetector(
@@ -500,7 +619,7 @@ class _HomePageState extends State<HomePage> {
     return StreamBuilder<QuerySnapshot>(
       stream: _db
           .collection('examenes')
-          .where('userId', isEqualTo: user!.uid)
+          .where('userId', isEqualTo: user?.uid ?? '')
           .where('completado', isEqualTo: false)
           .orderBy('fecha')
           .limit(5)
@@ -626,7 +745,7 @@ class _HomePageState extends State<HomePage> {
         StreamBuilder<QuerySnapshot>(
           stream: _db
               .collection('examenes')
-              .where('userId', isEqualTo: user!.uid)
+              .where('userId', isEqualTo: user?.uid ?? '')
               .where('completado', isEqualTo: false)
               .orderBy('fecha')
               .limit(5)
@@ -747,7 +866,7 @@ class _HomePageState extends State<HomePage> {
         StreamBuilder<QuerySnapshot>(
           stream: _db
               .collection('habitos')
-              .where('userId', isEqualTo: user!.uid)
+              .where('userId', isEqualTo: user?.uid ?? '')
               .limit(4)
               .snapshots(),
           builder: (context, snapshot) {
@@ -867,57 +986,112 @@ class _HomePageState extends State<HomePage> {
   }
 
   Widget _buildBotones() {
-    return Column(children: [
-      _btn(
-        icon: Icons.local_fire_department,
-        color: const Color(0xFFF7584A),
-        label: 'Historial de racha 🔥',
-        onTap: () => Navigator.push(
-            context, MaterialPageRoute(builder: (_) => const RachaHeatmapPage())),
-      ),
-      const SizedBox(height: 8),
-      _btn(
-        icon: Icons.emoji_events,
-        color: const Color(0xFFFFD700),
-        label: 'Mis logros 🏆',
-        onTap: () => Navigator.push(
-            context, MaterialPageRoute(builder: (_) => const LogrosPage())),
-      ),
-      const SizedBox(height: 8),
-      _btn(
-        icon: Icons.dashboard,
-        color: const Color(0xFFFFD700),
-        label: 'Dashboard semanal',
-        onTap: () => Navigator.push(
-            context, MaterialPageRoute(builder: (_) => const DashboardPage())),
-      ),
-      const SizedBox(height: 8),
-      _btn(
-        icon: Icons.notifications,
-        color: const Color(0xFF5DE0C5),
-        label: 'Configurar notificaciones',
-        onTap: () => Navigator.push(context,
-            MaterialPageRoute(builder: (_) => const PantallaNotificaciones())),
-      ),
-      const SizedBox(height: 8),
-      if (user?.email?.toLowerCase() == AdminPage.adminEmail) ...[
-        _btn(
-          icon: Icons.admin_panel_settings,
-          color: Colors.orange,
-          label: 'Panel Admin 👁️',
-          onTap: () => Navigator.push(
-              context, MaterialPageRoute(builder: (_) => const AdminPage())),
+    final grilla = <_GrillaItem>[
+      _GrillaItem(Icons.style, const Color(0xFF7C6AF7), 'Flashcards SRS 🧠',
+          () => Navigator.push(context, MaterialPageRoute(builder: (_) => const SRSDecksPage()))),
+      _GrillaItem(Icons.bar_chart, const Color(0xFF4A90E2), 'Mis Notas 📊',
+          () => Navigator.push(context, MaterialPageRoute(builder: (_) => const CalificacionesPage()))),
+      _GrillaItem(Icons.favorite_outline, const Color(0xFF5DE0C5), 'Mi Bienestar 💚',
+          () => Navigator.push(context, MaterialPageRoute(builder: (_) => const BienestarPage()))),
+      _GrillaItem(Icons.star_outline, const Color(0xFFFFD700), 'Premium ⭐',
+          () => Navigator.push(context, MaterialPageRoute(builder: (_) => const PremiumPage()))),
+      _GrillaItem(Icons.school, const Color(0xFF7C6AF7), 'Mi Academia 🏫',
+          () => Navigator.push(context, MaterialPageRoute(builder: (_) => const AcademiaPage()))),
+      _GrillaItem(Icons.picture_as_pdf, const Color(0xFFF7584A), 'PDF Simulacro 📄',
+          () => Navigator.push(context, MaterialPageRoute(builder: (_) => const PdfSimulacroPage()))),
+      _GrillaItem(Icons.groups_outlined, const Color(0xFF5DE0C5), 'Grupos 👥',
+          () => Navigator.push(context, MaterialPageRoute(builder: (_) => const GrupoEstudioPage()))),
+      _GrillaItem(Icons.lightbulb_outline, const Color(0xFFFFC857), 'Feynman 🧩',
+          () => Navigator.push(context, MaterialPageRoute(builder: (_) => const FeynmanPage()))),
+      _GrillaItem(Icons.cases_outlined, const Color(0xFFF7584A), 'Casos Reales 🎭',
+          () => Navigator.push(context, MaterialPageRoute(builder: (_) => const CasosRealesPage()))),
+      _GrillaItem(Icons.school_outlined, const Color(0xFF5DE0C5), 'Aula Virtual 📋',
+          () => Navigator.push(context, MaterialPageRoute(builder: (_) => const AulaVirtualPage()))),
+      _GrillaItem(Icons.emoji_events_outlined, const Color(0xFF4A90E2), 'Simulacros 🎓',
+          () => Navigator.push(context, MaterialPageRoute(builder: (_) => const AdmisionPage()))),
+      _GrillaItem(Icons.local_fire_department, const Color(0xFFF7584A), 'Racha 🔥',
+          () => Navigator.push(context, MaterialPageRoute(builder: (_) => const RachaHeatmapPage()))),
+      _GrillaItem(Icons.emoji_events, const Color(0xFFFFD700), 'Mis Logros 🏆',
+          () => Navigator.push(context, MaterialPageRoute(builder: (_) => const LogrosPage()))),
+      _GrillaItem(Icons.dashboard, const Color(0xFFFFD700), 'Dashboard 📈',
+          () => Navigator.push(context, MaterialPageRoute(builder: (_) => const DashboardPage()))),
+      _GrillaItem(Icons.notifications, const Color(0xFF5DE0C5), 'Notificaciones 🔔',
+          () => Navigator.push(context, MaterialPageRoute(builder: (_) => const PantallaNotificaciones()))),
+    ];
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text('MÁS FUNCIONES',
+            style: TextStyle(
+                color: Colors.white54,
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
+                letterSpacing: 1)),
+        const SizedBox(height: 12),
+        GridView.builder(
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: 2,
+            crossAxisSpacing: 10,
+            mainAxisSpacing: 10,
+            childAspectRatio: 1.65,
+          ),
+          itemCount: grilla.length,
+          itemBuilder: (_, i) {
+            final item = grilla[i];
+            return GestureDetector(
+              onTap: item.onTap,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 14),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF1E1E2A),
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(color: item.color.withOpacity(0.3)),
+                ),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(item.icon, color: item.color, size: 24),
+                    const SizedBox(height: 8),
+                    Text(
+                      item.label,
+                      textAlign: TextAlign.center,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                          color: item.color,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                          height: 1.3),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
         ),
-        const SizedBox(height: 8),
+        const SizedBox(height: 12),
+        if (user?.email?.toLowerCase() == AdminPage.adminEmail) ...[
+          _btn(
+            icon: Icons.admin_panel_settings,
+            color: Colors.orange,
+            label: 'Panel Admin 👁️',
+            onTap: () => Navigator.push(
+                context, MaterialPageRoute(builder: (_) => const AdminPage())),
+          ),
+          const SizedBox(height: 8),
+        ],
+        _btn(
+          icon: Icons.logout,
+          color: Colors.white38,
+          label: 'Cerrar sesión',
+          onTap: _cerrarSesion,
+          borderColor: Colors.white12,
+        ),
       ],
-      _btn(
-        icon: Icons.logout,
-        color: Colors.white38,
-        label: 'Cerrar sesión',
-        onTap: _cerrarSesion,
-        borderColor: Colors.white12,
-      ),
-    ]);
+    );
   }
 
   Widget _btn({
@@ -950,4 +1124,12 @@ class _HomePageState extends State<HomePage> {
       ),
     );
   }
+}
+
+class _GrillaItem {
+  final IconData icon;
+  final Color color;
+  final String label;
+  final VoidCallback onTap;
+  _GrillaItem(this.icon, this.color, this.label, this.onTap);
 }

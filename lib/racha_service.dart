@@ -5,8 +5,6 @@ import 'package:flutter/foundation.dart';
 class RachaService {
   final _db = FirebaseFirestore.instance;
 
-  // Obtener el usuario en el momento de la llamada, no al construir el servicio,
-  // para evitar capturar un usuario nulo durante la inicialización del login.
   User? get _user => FirebaseAuth.instance.currentUser;
 
   Future<void> verificarRacha() async {
@@ -15,10 +13,9 @@ class RachaService {
     final docRef = _db.collection('perfiles').doc(_user!.uid);
     final doc = await docRef.get();
 
-    // Usamos la hora local del dispositivo. Firestore's toDate() también
-    // retorna hora local, por lo que las comparaciones son consistentes.
     final ahora = DateTime.now();
     final hoy = DateTime(ahora.year, ahora.month, ahora.day);
+    final semanaActual = _semanaISO(hoy);
 
     if (!doc.exists) {
       await docRef.set({
@@ -27,37 +24,49 @@ class RachaService {
         'rachaMaxima': 1,
         'ultimoReset': Timestamp.fromDate(hoy),
         'primeraVisita': Timestamp.fromDate(hoy),
+        'escudos': 1,
+        'escudo_semana': semanaActual,
       }, SetOptions(merge: true));
       return;
     }
 
-    // Retrocompatibilidad: agregar primeraVisita a perfiles existentes que no lo tienen
-    final data0 = doc.data()!;
-    if (data0['primeraVisita'] == null) {
-      await docRef.update({'primeraVisita': data0['ultimaVisita'] ?? Timestamp.fromDate(hoy)});
+    final data = doc.data()!;
+
+    // Retrocompatibilidad: primeraVisita
+    if (data['primeraVisita'] == null) {
+      await docRef.update({'primeraVisita': data['ultimaVisita'] ?? Timestamp.fromDate(hoy)});
+    }
+    // Retrocompatibilidad: escudos (perfiles sin el campo)
+    if (data['escudos'] == null) {
+      await docRef.update({'escudos': 1, 'escudo_semana': semanaActual});
     }
 
-    final data = doc.data()!;
     final ultimaVisita = (data['ultimaVisita'] as Timestamp?)?.toDate();
-    final rachaActual = data['racha'] ?? 0;
-    final rachaMaxima = data['rachaMaxima'] ?? 0;
+    final rachaActual = (data['racha'] as num? ?? 0).toInt();
+    final rachaMaxima = (data['rachaMaxima'] as num? ?? 0).toInt();
     final ultimoReset = (data['ultimoReset'] as Timestamp?)?.toDate();
+    final escudoSemana = data['escudo_semana'] as String? ?? '';
+    final escudos = (data['escudos'] as num? ?? 0).toInt();
 
-    // Reset habitos si es un nuevo dia
+    // Escudo efectivo: si cambia la semana, el escudo se recarga a 1
+    final esSemanaNueva = escudoSemana != semanaActual;
+    final escudosEfectivos = esSemanaNueva ? 1 : escudos;
+
+    // Reset hábitos si es nuevo día
     final ultimoDiaReset = ultimoReset != null
         ? DateTime(ultimoReset.year, ultimoReset.month, ultimoReset.day)
         : null;
-
-    if (ultimoDiaReset == null || hoy.difference(ultimoDiaReset).inDays >= 1) {
-      await _resetearHabitos();
-      await docRef.update({'ultimoReset': Timestamp.fromDate(hoy)});
-    }
+    final necesitaReset = ultimoDiaReset == null || hoy.difference(ultimoDiaReset).inDays >= 1;
+    if (necesitaReset) await _resetearHabitos();
 
     if (ultimaVisita == null) {
       await docRef.update({
         'racha': 1,
         'ultimaVisita': Timestamp.fromDate(hoy),
         'rachaMaxima': 1,
+        if (necesitaReset) 'ultimoReset': Timestamp.fromDate(hoy),
+        if (esSemanaNueva) 'escudo_semana': semanaActual,
+        if (esSemanaNueva) 'escudos': 1,
       });
       return;
     }
@@ -66,26 +75,57 @@ class RachaService {
     final diferencia = hoy.difference(ultimoDia).inDays;
 
     if (diferencia == 0) {
-      return;
+      // Ya visitó hoy: solo actualizar escudo/reset si cambió algo
+      final extras = <String, dynamic>{
+        if (necesitaReset) 'ultimoReset': Timestamp.fromDate(hoy),
+        if (esSemanaNueva) 'escudo_semana': semanaActual,
+        if (esSemanaNueva) 'escudos': 1,
+      };
+      if (extras.isNotEmpty) await docRef.update(extras);
     } else if (diferencia == 1) {
       final nuevaRacha = rachaActual + 1;
       await docRef.update({
         'racha': nuevaRacha,
         'ultimaVisita': Timestamp.fromDate(hoy),
         'rachaMaxima': nuevaRacha > rachaMaxima ? nuevaRacha : rachaMaxima,
+        if (necesitaReset) 'ultimoReset': Timestamp.fromDate(hoy),
+        if (esSemanaNueva) 'escudo_semana': semanaActual,
+        if (esSemanaNueva) 'escudos': 1,
       });
     } else {
-      await docRef.update({
-        'racha': 1,
-        'ultimaVisita': Timestamp.fromDate(hoy),
-      });
+      // Racha rota: aplicar escudo automáticamente si hay uno
+      if (escudosEfectivos > 0) {
+        await docRef.update({
+          'racha': rachaActual,
+          'ultimaVisita': Timestamp.fromDate(hoy),
+          'escudos': 0,
+          'escudo_semana': semanaActual,
+          'escudo_usado_en': Timestamp.fromDate(hoy),
+          if (necesitaReset) 'ultimoReset': Timestamp.fromDate(hoy),
+        });
+      } else {
+        await docRef.update({
+          'racha': 1,
+          'ultimaVisita': Timestamp.fromDate(hoy),
+          if (necesitaReset) 'ultimoReset': Timestamp.fromDate(hoy),
+          if (esSemanaNueva) 'escudo_semana': semanaActual,
+          if (esSemanaNueva) 'escudos': 1,
+        });
+      }
     }
+  }
+
+  // Identificador único por semana (lunes como inicio)
+  String _semanaISO(DateTime date) {
+    final lunes = date.subtract(Duration(days: date.weekday - 1));
+    return '${lunes.year}-${lunes.month.toString().padLeft(2, '0')}-${lunes.day.toString().padLeft(2, '0')}';
   }
 
   Future<void> _resetearHabitos() async {
     if (_user == null) return;
     try {
-      final habitos = await _db.collection('habitos')
+      final habitos = await _db
+          .collection('habitos')
           .where('userId', isEqualTo: _user!.uid)
           .where('done', isEqualTo: true)
           .get();

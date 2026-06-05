@@ -27,6 +27,8 @@ class _LogrosPageState extends State<LogrosPage> {
     {'id': 'ia_1',           'emoji': '🤖',  'titulo': 'IA Master',       'descripcion': 'Usa la IA para estudiar por primera vez',       'color': const Color(0xFF7C6AF7)},
     {'id': 'ia_50',          'emoji': '🧠',  'titulo': 'Experto IA',      'descripcion': 'Realiza 50 búsquedas con la IA',                'color': const Color(0xFF7C6AF7)},
     {'id': 'simulacros_10',  'emoji': '🎯',  'titulo': 'Examinador',      'descripcion': 'Completa 10 simulacros',                        'color': const Color(0xFF5DE0C5)},
+    {'id': 'primer_simulacro','emoji': '🎓', 'titulo': 'Primer simulacro','descripcion': 'Completa tu primer simulacro',                  'color': const Color(0xFF5DE0C5)},
+    {'id': 'nota_perfecta',  'emoji': '💯',  'titulo': 'Nota perfecta',   'descripcion': 'Obtén 20/20 en un examen',                      'color': const Color(0xFFFFD700)},
     {'id': 'habitos_dia',    'emoji': '🌟',  'titulo': 'Constante',       'descripcion': 'Completa todos tus hábitos en un día',          'color': const Color(0xFFFFD700)},
   ];
 
@@ -79,6 +81,9 @@ class _LogrosPageState extends State<LogrosPage> {
                       final examenesCompletados = examenesSnapshot.data?.docs
                           .where((d) => (d.data() as Map)['completado'] == true)
                           .length ?? 0;
+                      final notaPerfecta = examenesSnapshot.data?.docs.any(
+                            (d) => (d.data() as Map)['nota'] == 20,
+                          ) ?? false;
 
                       // Calcular logros nuevos basados en datos actuales
                       final logrosCalculados = _calcularLogros(
@@ -91,6 +96,7 @@ class _LogrosPageState extends State<LogrosPage> {
                         examenesCompletados: examenesCompletados,
                         simulacrosCompletados: simulacrosCompletados,
                         iaUsosTotal: iaUsosTotal,
+                        notaPerfecta: notaPerfecta,
                       );
 
                       // Solo guardar si hay logros nuevos calculados (fuera del build)
@@ -141,6 +147,7 @@ class _LogrosPageState extends State<LogrosPage> {
     required int examenesCompletados,
     required int simulacrosCompletados,
     required int iaUsosTotal,
+    required bool notaPerfecta,
   }) {
     // Empezamos con los logros ya guardados (incluye ia_1, pomodoro_1, etc.)
     final logros = <String>[...logrosGuardados];
@@ -164,7 +171,11 @@ class _LogrosPageState extends State<LogrosPage> {
     if (examenesCompletados >= 1 && !logros.contains('examen_completado')) logros.add('examen_completado');
 
     // Simulacros PDF
-    if (simulacrosCompletados >= 10 && !logros.contains('simulacros_10')) logros.add('simulacros_10');
+    if (simulacrosCompletados >= 1  && !logros.contains('primer_simulacro')) logros.add('primer_simulacro');
+    if (simulacrosCompletados >= 10 && !logros.contains('simulacros_10'))    logros.add('simulacros_10');
+
+    // Nota perfecta
+    if (notaPerfecta && !logros.contains('nota_perfecta')) logros.add('nota_perfecta');
 
     // IA acumulada
     if (iaUsosTotal >= 50 && !logros.contains('ia_50')) logros.add('ia_50');
