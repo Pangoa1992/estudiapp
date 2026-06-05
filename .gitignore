@@ -40,6 +40,10 @@ secrets.json
 google-services.json
 GoogleService-Info.plist
 
+# Deploy scripts
+deploy/service-account.json
+deploy/node_modules/
+
 # IDE
 .idea/
 .vscode/
