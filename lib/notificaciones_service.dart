@@ -198,4 +198,126 @@ class NotificacionesService {
   static Future<void> cancelarTodas() async {
     await _plugin.cancelAll();
   }
+
+  // ── Notificaciones Inteligentes ────────────────────────────────────────────
+  // IDs 90000-99999 reservados para este bloque.
+
+  static const _androidInteligente = AndroidNotificationDetails(
+    'estudio_inteligente_canal',
+    'Estudio Inteligente',
+    channelDescription: 'Recordatorios personalizados de estudio',
+    importance: Importance.high,
+    priority: Priority.high,
+    icon: '@mipmap/ic_launcher',
+    playSound: true,
+    enableVibration: true,
+  );
+
+  /// Programa recordatorios inteligentes basados en exámenes próximos y racha.
+  /// Cancela los anteriores antes de reprogramar.
+  static Future<void> programarNotificacionesInteligentes({
+    required List<Map<String, dynamic>> examenes,
+    required int racha,
+  }) async {
+    // Limpiar bloque inteligente anterior
+    for (int i = 90000; i < 90020; i++) {
+      await _plugin.cancel(i);
+    }
+
+    final ahora = tz.TZDateTime.now(tz.local);
+    int idBase = 90000;
+
+    // 1. Por cada examen próximo (≤ 7 días) programa recordatorios de estudio
+    for (final examen in examenes) {
+      final fechaRaw = examen['fecha'];
+      if (fechaRaw == null) continue;
+      DateTime fecha;
+      if (fechaRaw is DateTime) {
+        fecha = fechaRaw;
+      } else {
+        continue;
+      }
+
+      final diasRestantes =
+          DateTime(fecha.year, fecha.month, fecha.day)
+              .difference(DateTime(ahora.year, ahora.month, ahora.day))
+              .inDays;
+      if (diasRestantes < 0 || diasRestantes > 7) continue;
+
+      final curso = examen['curso'] as String? ?? 'tu examen';
+
+      // Recordatorio de estudio nocturno: hoy a las 8 PM
+      final hoy8pm = tz.TZDateTime(tz.local, ahora.year, ahora.month, ahora.day, 20, 0);
+      if (hoy8pm.isAfter(ahora) && idBase < 90010) {
+        String titulo;
+        String cuerpo;
+        if (diasRestantes == 0) {
+          titulo = '🎯 ¡Hoy es tu examen de $curso!';
+          cuerpo = 'Ya es el día. Repasa tus notas rápidas y confía en ti.';
+        } else if (diasRestantes == 1) {
+          titulo = '📖 Mañana: $curso';
+          cuerpo = 'Haz un repaso final esta noche. ¡Tú puedes!';
+        } else {
+          titulo = '📚 Estudia $curso hoy';
+          cuerpo = 'Faltan $diasRestantes días. Un repaso ahora vale mucho.';
+        }
+        await _plugin.zonedSchedule(
+          idBase,
+          titulo,
+          cuerpo,
+          hoy8pm,
+          NotificationDetails(android: _androidInteligente),
+          androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+        );
+        idBase++;
+      }
+
+      // Recordatorio matutino mañana a las 9 AM (si faltan ≥ 2 días)
+      if (diasRestantes >= 2 && idBase < 90010) {
+        final manana9am = tz.TZDateTime(
+            tz.local, ahora.year, ahora.month, ahora.day, 9, 0)
+            .add(const Duration(days: 1));
+        await _plugin.zonedSchedule(
+          idBase,
+          '☀️ Buenos días — Examen de $curso en $diasRestantes días',
+          'Empieza temprano: estudia al menos 30 minutos hoy.',
+          manana9am,
+          NotificationDetails(android: _androidInteligente),
+          androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+        );
+        idBase++;
+      }
+    }
+
+    // 2. Recordatorio de racha: si lleva ≥ 3 días, avisa a las 9 PM
+    if (racha >= 3) {
+      final hoy9pm = tz.TZDateTime(tz.local, ahora.year, ahora.month, ahora.day, 21, 0);
+      if (hoy9pm.isAfter(ahora) && idBase < 90020) {
+        await _plugin.zonedSchedule(
+          idBase,
+          '🔥 ¡No pierdas tu racha de $racha días!',
+          'Completa aunque sea una actividad hoy para mantener la racha.',
+          hoy9pm,
+          NotificationDetails(android: _androidInteligente),
+          androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+        );
+        idBase++;
+      }
+    }
+
+    // 3. Si no hay exámenes próximos, recordatorio genérico a las 7 PM
+    if (examenes.isEmpty && idBase == 90000) {
+      final hoy7pm = tz.TZDateTime(tz.local, ahora.year, ahora.month, ahora.day, 19, 0);
+      if (hoy7pm.isAfter(ahora)) {
+        await _plugin.zonedSchedule(
+          90000,
+          '📚 Hora de estudiar',
+          'Mantén el hábito: 20 minutos al día hacen la diferencia.',
+          hoy7pm,
+          NotificationDetails(android: _androidInteligente),
+          androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+        );
+      }
+    }
+  }
 }

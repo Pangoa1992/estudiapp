@@ -3,22 +3,18 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // ── Helper ────────────────────────────────────────────────────────────────
+    // ── Helpers ───────────────────────────────────────────────────────────────
     function esAutenticado() {
       return request.auth != null;
     }
-
     function esPropietario(userId) {
       return request.auth.uid == userId;
     }
-
     function esAdmin() {
       return request.auth.token.email == 'pasminio456@gmail.com';
     }
 
     // ── Perfiles ──────────────────────────────────────────────────────────────
-    // El admin puede leer todos los perfiles (panel de testers).
-    // Cada usuario solo puede leer/escribir su propio perfil.
     match /perfiles/{userId} {
       allow read:  if esAutenticado() && (esPropietario(userId) || esAdmin());
       allow write: if esAutenticado() && esPropietario(userId);
@@ -26,34 +22,26 @@ service cloud.firestore {
 
     // ── Hábitos ───────────────────────────────────────────────────────────────
     match /habitos/{docId} {
-      allow read, write: if esAutenticado()
-                         && resource.data.userId == request.auth.uid;
-      allow create: if esAutenticado()
-                    && request.resource.data.userId == request.auth.uid;
+      allow read, write: if esAutenticado() && resource.data.userId == request.auth.uid;
+      allow create:      if esAutenticado() && request.resource.data.userId == request.auth.uid;
     }
 
     // ── Historial de hábitos ──────────────────────────────────────────────────
     match /historial_habitos/{docId} {
-      allow read, write: if esAutenticado()
-                         && resource.data.userId == request.auth.uid;
-      allow create: if esAutenticado()
-                    && request.resource.data.userId == request.auth.uid;
+      allow read, write: if esAutenticado() && resource.data.userId == request.auth.uid;
+      allow create:      if esAutenticado() && request.resource.data.userId == request.auth.uid;
     }
 
     // ── Exámenes ──────────────────────────────────────────────────────────────
     match /examenes/{docId} {
-      allow read, write: if esAutenticado()
-                         && resource.data.userId == request.auth.uid;
-      allow create: if esAutenticado()
-                    && request.resource.data.userId == request.auth.uid;
+      allow read, write: if esAutenticado() && resource.data.userId == request.auth.uid;
+      allow create:      if esAutenticado() && request.resource.data.userId == request.auth.uid;
     }
 
     // ── Cursos ────────────────────────────────────────────────────────────────
     match /cursos/{docId} {
-      allow read, write: if esAutenticado()
-                         && resource.data.userId == request.auth.uid;
-      allow create: if esAutenticado()
-                    && request.resource.data.userId == request.auth.uid;
+      allow read, write: if esAutenticado() && resource.data.userId == request.auth.uid;
+      allow create:      if esAutenticado() && request.resource.data.userId == request.auth.uid;
     }
 
     // ── Logros ────────────────────────────────────────────────────────────────
@@ -61,10 +49,9 @@ service cloud.firestore {
       allow read, write: if esAutenticado() && esPropietario(userId);
     }
 
-    // ── Historial IA ─────────────────────────────────────────────────────────
+    // ── Historial IA ──────────────────────────────────────────────────────────
     match /historial_ia/{userId} {
       allow read, write: if esAutenticado() && esPropietario(userId);
-
       match /mensajes/{mensajeId} {
         allow read, write: if esAutenticado() && esPropietario(userId);
       }
@@ -72,15 +59,122 @@ service cloud.firestore {
 
     // ── Ciclos académicos ─────────────────────────────────────────────────────
     match /ciclos_academicos/{docId} {
-      allow read, write: if esAutenticado()
-                         && resource.data.userId == request.auth.uid;
-      allow create: if esAutenticado()
-                    && request.resource.data.userId == request.auth.uid;
+      allow read, write: if esAutenticado() && resource.data.userId == request.auth.uid;
+      allow create:      if esAutenticado() && request.resource.data.userId == request.auth.uid;
     }
 
-    // Denegar todo lo demás por defecto
+    // ── Flashcards SRS ────────────────────────────────────────────────────────
+    match /flashcards_srs/{docId} {
+      allow read, write: if esAutenticado() && resource.data.userId == request.auth.uid;
+      allow create:      if esAutenticado() && request.resource.data.userId == request.auth.uid;
+    }
+
+    // ── Calificaciones ────────────────────────────────────────────────────────
+    match /calificaciones/{docId} {
+      allow read, write: if esAutenticado() && resource.data.userId == request.auth.uid;
+      allow create:      if esAutenticado() && request.resource.data.userId == request.auth.uid;
+    }
+
+    // ── Bienestar ─────────────────────────────────────────────────────────────
+    match /bienestar/{docId} {
+      allow read, write: if esAutenticado() && resource.data.userId == request.auth.uid;
+      allow create:      if esAutenticado() && request.resource.data.userId == request.auth.uid;
+    }
+
+    // ── Técnica Feynman ───────────────────────────────────────────────────────
+    match /feynman_sesiones/{docId} {
+      allow read, write: if esAutenticado() && resource.data.userId == request.auth.uid;
+      allow create:      if esAutenticado() && request.resource.data.userId == request.auth.uid;
+    }
+
+    // ── Casos Reales ──────────────────────────────────────────────────────────
+    match /casos_reales_sesiones/{docId} {
+      allow read, write: if esAutenticado() && resource.data.userId == request.auth.uid;
+      allow create:      if esAutenticado() && request.resource.data.userId == request.auth.uid;
+    }
+
+    // ── Simulacros de Admisión ────────────────────────────────────────────────
+    match /admision_sesiones/{docId} {
+      allow read, write: if esAutenticado() && resource.data.userId == request.auth.uid;
+      allow create:      if esAutenticado() && request.resource.data.userId == request.auth.uid;
+    }
+
+    // ── Aula Virtual — Exámenes docente ───────────────────────────────────────
+    // Docentes CRUD propio; estudiantes READ (necesitan buscar por código).
+    match /examenes_docentes/{docId} {
+      allow read:   if esAutenticado();
+      allow create: if esAutenticado() && request.resource.data.creadorId == request.auth.uid;
+      allow update, delete: if esAutenticado() && resource.data.creadorId == request.auth.uid;
+    }
+
+    // ── Aula Virtual — Sesiones de examen ─────────────────────────────────────
+    match /sesiones_examen/{docId} {
+      allow read:   if esAutenticado() && (
+                      resource.data.estudianteId == request.auth.uid ||
+                      resource.data.creadorId    == request.auth.uid
+                    );
+      allow create: if esAutenticado() && request.resource.data.estudianteId == request.auth.uid;
+      allow update: if esAutenticado() && resource.data.estudianteId == request.auth.uid;
+    }
+
+    // ── Mi Academia ───────────────────────────────────────────────────────────
+    // Docentes CRUD su academia; estudiantes READ (buscar por código).
+    match /academias/{acadId} {
+      allow read:   if esAutenticado();
+      allow create: if esAutenticado() && request.resource.data.docenteId == request.auth.uid;
+      allow update, delete: if esAutenticado() && resource.data.docenteId == request.auth.uid;
+
+      match /miembros/{miembroId} {
+        allow read:          if esAutenticado();
+        allow create, write: if esAutenticado();
+      }
+    }
+
+    // ── PDF Simulacro ─────────────────────────────────────────────────────────
+    // Docentes crean/gestionan; estudiantes READ (buscar por código).
+    match /pdf_simulacros/{docId} {
+      allow read:   if esAutenticado();
+      allow create: if esAutenticado() && request.resource.data.creadorId == request.auth.uid;
+      allow update, delete: if esAutenticado() && resource.data.creadorId == request.auth.uid;
+    }
+
+    // Resultados PDF — cada alumno escribe/lee los suyos.
+    match /pdf_resultados/{docId} {
+      allow read:   if esAutenticado() && resource.data.userId == request.auth.uid;
+      allow create: if esAutenticado() && request.resource.data.userId == request.auth.uid;
+    }
+
+    // ── Grupos de Estudio ─────────────────────────────────────────────────────
+    // Cualquier usuario autenticado puede crear y unirse a grupos (Premium se
+    // verifica en el cliente). Los heartbeats y mensajes requieren autenticación.
+    match /grupos_estudio/{grupoId} {
+      allow read:          if esAutenticado();
+      allow create, write: if esAutenticado();
+
+      match /mensajes/{msgId} {
+        allow read, write: if esAutenticado();
+      }
+    }
+
+    // ── Historial de simulacros IA ────────────────────────────────────────────
+    match /simulacros_historial/{userId} {
+      allow read, write: if esAutenticado() && esPropietario(userId);
+      match /resultados/{docId} {
+        allow read, write: if esAutenticado() && esPropietario(userId);
+      }
+    }
+
+    // ── Tokens FCM ────────────────────────────────────────────────────────────
+    // Solo el admin puede leer y escribir tokens FCM (el cliente solo escribe el
+    // suyo propio; la Cloud Function usa Admin SDK y no está sujeta a estas reglas).
+    match /fcm_tokens/{docId} {
+      allow read, write: if esAdmin();
+    }
+
+    // ── Admin — puede leer todo ───────────────────────────────────────────────
     match /{document=**} {
-      allow read, write: if false;
+      allow read: if esAdmin();
+      allow write: if false;
     }
   }
 }

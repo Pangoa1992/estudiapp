@@ -1,5 +1,5 @@
-import 'package:printing/printing.dart';
 import 'package:flutter/material.dart';
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -10,7 +10,14 @@ import 'package:file_picker/file_picker.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:path_provider/path_provider.dart';
-import 'package:google_mobile_ads/google_mobile_ads.dart'; // ── NUEVO
+import 'package:google_mobile_ads/google_mobile_ads.dart';
+import 'models/flashcard_srs_model.dart';
+import 'services/srs_service.dart';
+import 'services/carrera_service.dart';
+import 'services/ia_limite_service.dart';
+import 'package:cloud_functions/cloud_functions.dart';
+import 'package:share_plus/share_plus.dart';
+import 'premium_page.dart';
 
 class IAPage extends StatefulWidget {
   const IAPage({super.key});
@@ -29,13 +36,16 @@ class _IAPageState extends State<IAPage> {
   bool _cargandoChat = false;
   String _temaActual = '';
 
-  // ── NUEVO ──────────────────────────────────────────────
+  // ── ADS + LÍMITE DIARIO ────────────────────────────────
   InterstitialAd? _interstitialAd;
   int _contadorUsos = 0;
+  RewardedAd? _rewardedAd;
+  RewardedInterstitialAd? _rewardedInterstitialAd;
+  int _busquedasRestantes = IaLimiteService.limiteGratuito;
 
   void _cargarIntersticial() {
     InterstitialAd.load(
-      adUnitId: 'ca-app-pub-6530298594670805/6956014522', // ← reemplaza con tu ID real de AdMob
+      adUnitId: 'ca-app-pub-6530298594670805/6956014522',
       request: const AdRequest(),
       adLoadCallback: InterstitialAdLoadCallback(
         onAdLoaded: (ad) => _interstitialAd = ad,
@@ -52,18 +62,266 @@ class _IAPageState extends State<IAPage> {
       _cargarIntersticial();
     }
   }
-  // ── FIN NUEVO ──────────────────────────────────────────
+  // ── REWARDED AD ───────────────────────────────────────
+  static const _rewardedAdUnitId = 'ca-app-pub-6530298594670805/5148826414';
+
+  // ── REWARDED INTERSTITIAL — simulacro (+2 búsquedas) ─────────────────────
+  static const _rewardedInterstitialAdUnitId =
+      'ca-app-pub-6530298594670805/1966232096';
+
+  void _cargarRewardedAd() {
+    RewardedAd.load(
+      adUnitId: _rewardedAdUnitId,
+      request: const AdRequest(),
+      rewardedAdLoadCallback: RewardedAdLoadCallback(
+        onAdLoaded: (ad) {
+          _rewardedAd = ad;
+          _rewardedAd!.fullScreenContentCallback = FullScreenContentCallback(
+            onAdDismissedFullScreenContent: (ad) {
+              ad.dispose();
+              _rewardedAd = null;
+              _cargarRewardedAd(); // precarga el siguiente
+            },
+            onAdFailedToShowFullScreenContent: (ad, error) {
+              ad.dispose();
+              _rewardedAd = null;
+              _cargarRewardedAd();
+            },
+          );
+        },
+        onAdFailedToLoad: (_) => _rewardedAd = null,
+      ),
+    );
+  }
+
+  void _cargarRewardedInterstitialAd() {
+    RewardedInterstitialAd.load(
+      adUnitId: _rewardedInterstitialAdUnitId,
+      request: const AdRequest(),
+      rewardedInterstitialAdLoadCallback: RewardedInterstitialAdLoadCallback(
+        onAdLoaded: (ad) {
+          _rewardedInterstitialAd = ad;
+          _rewardedInterstitialAd!.fullScreenContentCallback =
+              FullScreenContentCallback(
+            onAdDismissedFullScreenContent: (ad) {
+              ad.dispose();
+              _rewardedInterstitialAd = null;
+              _cargarRewardedInterstitialAd();
+            },
+            onAdFailedToShowFullScreenContent: (ad, error) {
+              ad.dispose();
+              _rewardedInterstitialAd = null;
+              _cargarRewardedInterstitialAd();
+            },
+          );
+        },
+        onAdFailedToLoad: (_) => _rewardedInterstitialAd = null,
+      ),
+    );
+  }
+
+  Future<void> _mostrarRewardedInterstitial() async {
+    if (_rewardedInterstitialAd == null) return;
+    await _rewardedInterstitialAd!.show(
+      onUserEarnedReward: (ad, reward) async {
+        await IaLimiteService.agregarBonus(cantidad: 2);
+        await _actualizarRestantes();
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text(
+                  '¡Ganaste 2 búsquedas extra por completar el simulacro! 🎯'),
+              backgroundColor: Color(0xFF5DE0C5),
+            ),
+          );
+        }
+      },
+    );
+  }
+
+  Future<void> _actualizarRestantes() async {
+    final r = await IaLimiteService.restantes();
+    if (mounted) setState(() => _busquedasRestantes = r);
+  }
+
+  Future<void> _mostrarRewardedAd() async {
+    if (_rewardedAd == null) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Anuncio no disponible. Intenta en un momento.')),
+        );
+      }
+      return;
+    }
+    _rewardedAd!.show(
+      onUserEarnedReward: (ad, reward) async {
+        await IaLimiteService.agregarBonus();
+        await _actualizarRestantes();
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('¡Ganaste 3 búsquedas extra! 🎉'),
+              backgroundColor: Color(0xFF5DE0C5),
+            ),
+          );
+        }
+      },
+    );
+  }
+
+  Future<void> _mostrarPasarela() async {
+    if (!mounted) return;
+    await showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: const Color(0xFF1E1E2A),
+      shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
+      builder: (ctx) => Padding(
+        padding: const EdgeInsets.fromLTRB(24, 24, 24, 32),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: const Color(0xFF7C6AF7).withOpacity(0.15),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(Icons.auto_awesome, color: Color(0xFF7C6AF7), size: 40),
+            ),
+            const SizedBox(height: 16),
+            const Text(
+              'Sin búsquedas disponibles',
+              style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 8),
+            const Text(
+              'Usaste tus 5 búsquedas gratuitas de hoy.\nVuelve mañana o gana más ahora mismo.',
+              style: TextStyle(color: Colors.white54, fontSize: 13),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 24),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton.icon(
+                onPressed: _rewardedAd != null
+                    ? () { Navigator.pop(ctx); _mostrarRewardedAd(); }
+                    : null,
+                icon: const Icon(Icons.play_circle_outline, color: Colors.white),
+                label: const Text(
+                  'Ver anuncio  (+3 búsquedas gratis)',
+                  style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                ),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF5DE0C5),
+                  disabledBackgroundColor: const Color(0xFF2A2A3A),
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                ),
+              ),
+            ),
+            if (_rewardedAd == null)
+              const Padding(
+                padding: EdgeInsets.only(top: 6),
+                child: Text(
+                  'Anuncio cargando, intenta de nuevo en un momento',
+                  style: TextStyle(color: Colors.white38, fontSize: 11),
+                  textAlign: TextAlign.center,
+                ),
+              ),
+            const SizedBox(height: 10),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton.icon(
+                onPressed: () {
+                  Navigator.pop(ctx);
+                  Navigator.push(context, MaterialPageRoute(builder: (_) => const PremiumPage()));
+                },
+                icon: const Icon(Icons.star_rounded, color: Colors.white),
+                label: const Text(
+                  'Hacerse Premium — búsquedas ilimitadas',
+                  style: TextStyle(color: Colors.white),
+                ),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF7C6AF7),
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                ),
+              ),
+            ),
+            const SizedBox(height: 8),
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('Cancelar', style: TextStyle(color: Colors.white38)),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// Verifica el límite diario y descuenta 1 búsqueda.
+  /// Devuelve `false` (y muestra la pasarela) si ya se agotó el cupo.
+  Future<bool> _verificarYConsumir() async {
+    final ok = await IaLimiteService.consumir();
+    if (!ok) {
+      await _mostrarPasarela();
+      return false;
+    }
+    await _actualizarRestantes();
+    // Acumular total histórico de búsquedas IA (para logro ia_50)
+    final user = FirebaseAuth.instance.currentUser;
+    if (user != null) {
+      FirebaseFirestore.instance
+          .collection('perfiles')
+          .doc(user.uid)
+          .set({'iaUsosTotal': FieldValue.increment(1)}, SetOptions(merge: true));
+    }
+    return true;
+  }
+  // ── FIN ADS + LÍMITE ──────────────────────────────────
 
   @override
   void initState() {
     super.initState();
     _cargarHistorialChat();
-    _cargarIntersticial(); // ── NUEVO
+    _cargarIntersticial();
+    _cargarRewardedAd();
+    _cargarRewardedInterstitialAd();
+    _cargarCarrera();
+    _actualizarRestantes();
+  }
+
+  Future<void> _cargarCarrera() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
+    try {
+      final doc = await FirebaseFirestore.instance
+          .collection('perfiles')
+          .doc(user.uid)
+          .get();
+      final carrera = doc.data()?['carrera'] as String? ?? '';
+      if (mounted) setState(() => _carrera = carrera);
+    } catch (_) {}
   }
 
   @override
   void dispose() {
-    _interstitialAd?.dispose(); // ── NUEVO
+    _interstitialAd?.dispose();
+    _rewardedAd?.dispose();
+    _rewardedInterstitialAd?.dispose();
+    _concepto1Controller.dispose();
+    _concepto2Controller.dispose();
+    _nemotecniaController.dispose();
+    _correctorController.dispose();
+    _chatHerramientasController.dispose();
+    _chatHerramientasScroll.dispose();
+    _temaHerramientasController.dispose();
+    _evalController.dispose();
+    _evalScroll.dispose();
+    _materiasRutaController.dispose();
+    _horasRutaController.dispose();
+    _typewriterTimer?.cancel();
     super.dispose();
   }
 
@@ -138,6 +396,7 @@ class _IAPageState extends State<IAPage> {
   int _modoActual = 0;
   final ImagePicker _picker = ImagePicker();
   final List<String> _tiposDocumento = ['Monografia', 'Resumen', 'Ensayo', 'Informe', 'Tesis'];
+  String _carrera = '';
 
   final TextEditingController _simulacroTemaController = TextEditingController();
   final TextEditingController _cantidadController = TextEditingController();
@@ -150,6 +409,49 @@ class _IAPageState extends State<IAPage> {
   int _preguntaActual = 0;
   final List<String> _niveles = ['Primaria', 'Secundaria', 'Universidad'];
   final List<String> _dificultades = ['Básico', 'Intermedio', 'Avanzado'];
+
+  // ── TYPEWRITER ───────────────────────────────────────────────────────────────
+  Timer? _typewriterTimer;
+
+  // ── SIMULACRO HISTORIAL + DEBILIDADES ─────────────────────────────────────────
+  bool _analizandoDebilidades = false;
+  String _analisisDebilidades = '';
+
+  // ── RUTA DE APRENDIZAJE ───────────────────────────────────────────────────────
+  final TextEditingController _materiasRutaController = TextEditingController();
+  final TextEditingController _horasRutaController = TextEditingController();
+  String _resultadoRuta = '';
+  bool _cargandoRuta = false;
+
+  // ── HERRAMIENTAS ─────────────────────────────────────────────────────────────
+  int _subModoHerramientas = -1;
+  // Comparador
+  final TextEditingController _concepto1Controller = TextEditingController();
+  final TextEditingController _concepto2Controller = TextEditingController();
+  String _resultadoComparador = '';
+  bool _cargandoComparador = false;
+  // Nemotecnias
+  final TextEditingController _nemotecniaController = TextEditingController();
+  String _resultadoNemotecnia = '';
+  bool _cargandoNemotecnia = false;
+  // Corrector
+  final TextEditingController _correctorController = TextEditingController();
+  String _resultadoCorrector = '';
+  bool _cargandoCorrector = false;
+  // Feynman / Socrático (chat compartido con contexto diferente)
+  List<Map<String, String>> _chatHerramientas = [];
+  bool _cargandoChatHerramientas = false;
+  final TextEditingController _chatHerramientasController = TextEditingController();
+  final ScrollController _chatHerramientasScroll = ScrollController();
+  final TextEditingController _temaHerramientasController = TextEditingController();
+  bool _chatHerramientasIniciado = false;
+
+  // ── EVALÚAME ──────────────────────────────────────────────────────────────────
+  List<Map<String, String>> _evalMensajes = [];
+  bool _cargandoEval = false;
+  bool _evalIniciado = false;
+  final TextEditingController _evalController = TextEditingController();
+  final ScrollController _evalScroll = ScrollController();
 
   static const _cloudRunUrl = 'https://llamaria-2o5lsg4hxa-uc.a.run.app';
 
@@ -242,6 +544,7 @@ class _IAPageState extends State<IAPage> {
     try {
       final XFile? imagen = await _picker.pickImage(source: source, imageQuality: 70, maxWidth: 1024);
       if (imagen == null) return;
+      if (!await _verificarYConsumir()) return; // ── LÍMITE DIARIO
       setState(() { _imagenSeleccionada = File(imagen.path); _respuestaImagen = ''; _cargandoImagen = true; });
       final bytes = await _imagenSeleccionada!.readAsBytes();
       final base64Image = base64Encode(bytes);
@@ -255,6 +558,7 @@ class _IAPageState extends State<IAPage> {
   Future<void> _preguntarSoloTexto() async {
     final pregunta = _preguntaScannerController.text.trim();
     if (pregunta.isEmpty) return;
+    if (!await _verificarYConsumir()) return; // ── LÍMITE DIARIO
     setState(() { _respuestaImagen = ''; _cargandoImagen = true; _imagenSeleccionada = null; });
     final respuesta = await _llamarIATexto(
       'Eres un tutor universitario experto. Responde lo siguiente de forma clara y detallada en español: "$pregunta"',
@@ -266,14 +570,16 @@ class _IAPageState extends State<IAPage> {
     try {
       final result = await FilePicker.platform.pickFiles(type: FileType.custom, allowedExtensions: ['pdf']);
       if (result == null) return;
-      setState(() { _respuestaImagen = ''; _cargandoImagen = true; });
+      // Verificar tamaño ANTES de consumir la búsqueda para no perderla en vano
       final file = File(result.files.single.path!);
-      final bytes = await file.readAsBytes();
       const maxBytes = 5 * 1024 * 1024;
-      if (bytes.length > maxBytes) {
+      if (await file.length() > maxBytes) {
         setState(() { _respuestaImagen = 'El PDF es demasiado grande (máx. 5 MB).'; _cargandoImagen = false; });
         return;
       }
+      if (!await _verificarYConsumir()) return; // ── LÍMITE DIARIO
+      setState(() { _respuestaImagen = ''; _cargandoImagen = true; });
+      final bytes = await file.readAsBytes();
       final base64PDF = base64Encode(bytes);
       final preguntaExtra = _preguntaScannerController.text.trim();
       final textoPregunta = preguntaExtra.isNotEmpty
@@ -295,6 +601,7 @@ class _IAPageState extends State<IAPage> {
 
   Future<void> _generarDocumento() async {
     if (_documentoController.text.isEmpty) return;
+    if (!await _verificarYConsumir()) return; // ── LÍMITE DIARIO
     setState(() { _cargandoDocumento = true; _documentoGenerado = ''; });
     final respuesta = await _llamarIATexto(
       'Eres un escritor academico universitario experto. '
@@ -302,7 +609,8 @@ class _IAPageState extends State<IAPage> {
       'Incluye: introduccion, desarrollo con puntos clave, conclusion y referencias. '
       'Usa lenguaje academico formal en español. Minimo 500 palabras.',
     );
-    setState(() { _documentoGenerado = respuesta ?? 'Error al generar. Intenta de nuevo.'; _cargandoDocumento = false; });
+    setState(() { _cargandoDocumento = false; });
+    _typewrite(respuesta ?? 'Error al generar. Intenta de nuevo.', (t) => setState(() => _documentoGenerado = t));
     _mostrarIntersticial(); // ── NUEVO: muestra anuncio al generar documento
   }
 
@@ -323,16 +631,40 @@ class _IAPageState extends State<IAPage> {
         },
       ));
       final bytes = await pdf.save();
-      Directory dir;
-      if (Platform.isAndroid) {
-        final androidDownloads = Directory('/storage/emulated/0/Download');
-        dir = await androidDownloads.exists() ? androidDownloads : await getApplicationDocumentsDirectory();
-      } else {
-        dir = await getApplicationDocumentsDirectory();
-      }
-      final file = File('${dir.path}/EstudiApp_$_tipoDocumento.pdf');
+      final dir = await getTemporaryDirectory();
+      final fileName = 'EstudiApp_${_tipoDocumento}_${DateTime.now().millisecondsSinceEpoch}.pdf';
+      final file = File('${dir.path}/$fileName');
       await file.writeAsBytes(bytes);
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('PDF guardado en Descargas')));
+      await Share.shareXFiles([XFile(file.path)], text: '$_tipoDocumento generado con EstudiApp');
+    } catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error al compartir: $e')));
+    }
+  }
+
+  Future<void> _compartirRespuestaScanner() async {
+    if (_respuestaImagen.isEmpty) return;
+    try {
+      final pdf = pw.Document();
+      pdf.addPage(pw.MultiPage(
+        pageFormat: PdfPageFormat.a4,
+        margin: const pw.EdgeInsets.all(40),
+        build: (context) {
+          final parrafos = _respuestaImagen.split('\n');
+          return [
+            pw.Text('Análisis - EstudiApp', style: pw.TextStyle(fontSize: 16, fontWeight: pw.FontWeight.bold)),
+            pw.SizedBox(height: 16),
+            ...parrafos.map((p) => pw.Padding(
+              padding: const pw.EdgeInsets.only(bottom: 6),
+              child: pw.Text(p.replaceAll('#', '').replaceAll('*', '').trim(), style: const pw.TextStyle(fontSize: 11)),
+            )),
+          ];
+        },
+      ));
+      final bytes = await pdf.save();
+      final dir = await getTemporaryDirectory();
+      final file = File('${dir.path}/EstudiApp_Scanner_${DateTime.now().millisecondsSinceEpoch}.pdf');
+      await file.writeAsBytes(bytes);
+      await Share.shareXFiles([XFile(file.path)], text: 'Análisis generado con EstudiApp');
     } catch (e) {
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
     }
@@ -340,6 +672,7 @@ class _IAPageState extends State<IAPage> {
 
   Future<void> _generarSimulacro() async {
     if (_simulacroTemaController.text.isEmpty) return;
+    if (!await _verificarYConsumir()) return; // ── LÍMITE DIARIO
     final tema = _simulacroTemaController.text;
     final cantidad = int.tryParse(_cantidadController.text) ?? 5;
     setState(() { _cargandoSimulacro = true; _preguntasSimulacro = []; _respuestasUsuario = []; _simulacroTerminado = false; _preguntaActual = 0; });
@@ -362,7 +695,18 @@ class _IAPageState extends State<IAPage> {
     if (_preguntaActual < _preguntasSimulacro.length - 1) {
       setState(() => _preguntaActual++);
     } else {
-      setState(() => _simulacroTerminado = true);
+      setState(() { _simulacroTerminado = true; _analisisDebilidades = ''; });
+      _guardarSimulacroHistorial();
+      _mostrarRewardedInterstitial();
+      // Notificación si logra 20/20
+      final total = _preguntasSimulacro.length;
+      if (total > 0 && _puntaje == total) {
+        _notificarLogro(
+          'simulacro_perfecto',
+          '🏆 ¡Puntuación perfecta!',
+          '¡${_puntaje}/$total en ${_simulacroTemaController.text}! Eres una máquina. 🎯',
+        );
+      }
     }
   }
 
@@ -379,6 +723,7 @@ class _IAPageState extends State<IAPage> {
   Future<void> _enviarMensajeChat() async {
     final pregunta = _chatController.text.trim();
     if (pregunta.isEmpty || _cargandoChat) return;
+    if (!await _verificarYConsumir()) return; // ── LÍMITE DIARIO
     _chatController.clear();
     setState(() { _chatMensajes.add({'role': 'user', 'text': pregunta}); _cargandoChat = true; });
     _guardarMensajeChat('user', pregunta);
@@ -398,6 +743,7 @@ class _IAPageState extends State<IAPage> {
 
   Future<void> _generarContenido() async {
     if (_temaController.text.isEmpty) return;
+    if (!await _verificarYConsumir()) return; // ── LÍMITE DIARIO
     final tema = _temaController.text;
     final dias = _diasController.text.isEmpty ? '7' : _diasController.text;
     setState(() {
@@ -406,35 +752,59 @@ class _IAPageState extends State<IAPage> {
       _planEstudio = []; _ejercicios = []; _mapaConceptual = [];
       _preguntasAbiertas = []; _ejerciciosAbiertos = [];
       _chatMensajes = [];
+      _evalMensajes = []; _evalIniciado = false;
       _temaActual = tema;
-      _progreso = 'Generando resumen y preguntas...';
+      _progreso = 'Generando contenido con IA...';
     });
-    final (respuesta1, error1) = await _llamarIA(
-      'Soy estudiante con examen de "$tema" en $dias dias. Responde SOLO con JSON valido. '
-      'Formato: {"resumen": "3 parrafos", "preguntas": [{"pregunta": "p1", "respuesta": "r1"}, {"pregunta": "p2", "respuesta": "r2"}, {"pregunta": "p3", "respuesta": "r3"}, {"pregunta": "p4", "respuesta": "r4"}, {"pregunta": "p5", "respuesta": "r5"}], "flashcards": [{"pregunta": "c1", "respuesta": "d1"}, {"pregunta": "c2", "respuesta": "d2"}, {"pregunta": "c3", "respuesta": "d3"}, {"pregunta": "c4", "respuesta": "d4"}]}. Todo en español.',
+    final contexto = CarreraService.contextoIA(_carrera);
+    final prefijo = contexto.isNotEmpty ? '$contexto\n' : '';
+
+    // ── OPTIMIZACIÓN: 1 sola llamada API en lugar de 2 (ahorra ~50 % de crédito) ──
+    final (data, cfError) = await _llamarCloudFunction(
+      messages: [{'role': 'user', 'content':
+        '${prefijo}Tengo examen de "$tema" en $dias dias. '
+        'Responde SOLO con JSON válido sin texto extra. '
+        'Formato exacto: {'
+        '"resumen":"3 párrafos del tema",'
+        '"preguntas":[{"pregunta":"p1","respuesta":"r1"},{"pregunta":"p2","respuesta":"r2"},{"pregunta":"p3","respuesta":"r3"},{"pregunta":"p4","respuesta":"r4"},{"pregunta":"p5","respuesta":"r5"}],'
+        '"flashcards":[{"pregunta":"c1","respuesta":"d1"},{"pregunta":"c2","respuesta":"d2"},{"pregunta":"c3","respuesta":"d3"},{"pregunta":"c4","respuesta":"d4"}],'
+        '"tips":["t1","t2","t3","t4","t5"],'
+        '"plan":["Dia 1: a","Dia 2: a","Dia 3: a","Dia 4: a"],'
+        '"ejercicios":[{"problema":"e1","solucion":"s1"},{"problema":"e2","solucion":"s2"}],'
+        '"mapa":["concepto","sub1","sub2","sub3","sub4"]}. Todo en español.'}],
+      maxTokens: 5000,
     );
-    if (respuesta1 == null) { setState(() { _error = error1 ?? 'Error al generar.'; _cargando = false; _progreso = ''; }); return; }
-    setState(() => _progreso = 'Generando plan y ejercicios...');
-    final (respuesta2, error2) = await _llamarIA(
-      'Soy estudiante con examen de "$tema" en $dias dias. Responde SOLO con JSON valido. '
-      'Formato: {"tips": ["t1","t2","t3","t4","t5"], "plan": ["Dia 1: a","Dia 2: a","Dia 3: a","Dia 4: a"], "ejercicios": [{"problema": "e1", "solucion": "s1"}, {"problema": "e2", "solucion": "s2"}], "mapa": ["concepto","sub1","sub2","sub3","sub4"]}. Todo en español.',
-    );
-    if (respuesta2 == null) { setState(() { _error = error2 ?? 'Error al generar plan.'; _cargando = false; _progreso = ''; }); return; }
-    final preguntas = List<Map<String, String>>.from((respuesta1['preguntas'] ?? []).map((e) => Map<String, String>.from((e as Map).map((k, v) => MapEntry(k.toString(), v.toString())))));
-    final ejercicios = List<Map<String, String>>.from((respuesta2['ejercicios'] ?? []).map((e) => Map<String, String>.from((e as Map).map((k, v) => MapEntry(k.toString(), v.toString())))));
-    final flashcards = List<Map<String, String>>.from((respuesta1['flashcards'] ?? []).map((e) => Map<String, String>.from((e as Map).map((k, v) => MapEntry(k.toString(), v.toString())))));
+    if (data == null) {
+      setState(() { _error = cfError ?? 'Error al generar.'; _cargando = false; _progreso = ''; });
+      return;
+    }
+    Map<String, dynamic> respuesta;
+    try {
+      final texto = (data['content'] as List).first['text'] as String;
+      String jsonLimpio = texto.trim();
+      final inicio = jsonLimpio.indexOf('{');
+      final fin = jsonLimpio.lastIndexOf('}');
+      if (inicio != -1 && fin != -1) jsonLimpio = jsonLimpio.substring(inicio, fin + 1);
+      respuesta = jsonDecode(jsonLimpio) as Map<String, dynamic>;
+    } catch (_) {
+      setState(() { _error = 'Error al procesar la respuesta de la IA.'; _cargando = false; _progreso = ''; });
+      return;
+    }
+    final preguntas = List<Map<String, String>>.from((respuesta['preguntas'] ?? []).map((e) => Map<String, String>.from((e as Map).map((k, v) => MapEntry(k.toString(), v.toString())))));
+    final ejercicios = List<Map<String, String>>.from((respuesta['ejercicios'] ?? []).map((e) => Map<String, String>.from((e as Map).map((k, v) => MapEntry(k.toString(), v.toString())))));
+    final flashcards = List<Map<String, String>>.from((respuesta['flashcards'] ?? []).map((e) => Map<String, String>.from((e as Map).map((k, v) => MapEntry(k.toString(), v.toString())))));
     setState(() {
-      _resumen = respuesta1['resumen']?.toString() ?? '';
+      _resumen = respuesta['resumen']?.toString() ?? '';
       _preguntas = preguntas; _flashcards = flashcards;
-      _tips = List<String>.from((respuesta2['tips'] ?? []).map((e) => e.toString()));
-      _planEstudio = List<String>.from((respuesta2['plan'] ?? []).map((e) => e.toString()));
+      _tips = List<String>.from((respuesta['tips'] ?? []).map((e) => e.toString()));
+      _planEstudio = List<String>.from((respuesta['plan'] ?? []).map((e) => e.toString()));
       _ejercicios = ejercicios;
-      _mapaConceptual = List<String>.from((respuesta2['mapa'] ?? []).map((e) => e.toString()));
+      _mapaConceptual = List<String>.from((respuesta['mapa'] ?? []).map((e) => e.toString()));
       _preguntasAbiertas = List.filled(preguntas.length, false);
       _ejerciciosAbiertos = List.filled(ejercicios.length, false);
       _cargando = false; _progreso = '';
     });
-    _mostrarIntersticial(); // ── NUEVO: muestra anuncio al generar contenido
+    _mostrarIntersticial();
     final iaUser = FirebaseAuth.instance.currentUser;
     if (iaUser != null) {
       FirebaseFirestore.instance.collection('logros').doc(iaUser.uid).set(
@@ -443,7 +813,436 @@ class _IAPageState extends State<IAPage> {
     }
   }
 
-  // ── El resto del build y widgets permanece igual ──────────────────────────
+  Future<void> _guardarEnSRS() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null || _flashcards.isEmpty) return;
+
+    final cursosSnap = await FirebaseFirestore.instance
+        .collection('cursos')
+        .where('userId', isEqualTo: user.uid)
+        .get();
+
+    if (!mounted) return;
+
+    String cursoId = _temaActual;
+    String cursoNombre = _temaActual;
+
+    await showModalBottomSheet(
+      context: context,
+      backgroundColor: const Color(0xFF1E1E2A),
+      shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (ctx) => SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const SizedBox(height: 20),
+            const Padding(
+              padding: EdgeInsets.symmetric(horizontal: 20),
+              child: Text('¿En qué mazo guardar?',
+                  style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold)),
+            ),
+            const SizedBox(height: 8),
+            ListTile(
+              leading: const CircleAvatar(
+                backgroundColor: Color(0xFF7C6AF7),
+                radius: 16,
+                child: Icon(Icons.auto_awesome, color: Colors.white, size: 14),
+              ),
+              title: Text('Mazo: $_temaActual',
+                  style: const TextStyle(color: Colors.white)),
+              subtitle: const Text('Nuevo mazo con el tema actual',
+                  style: TextStyle(color: Colors.white54, fontSize: 12)),
+              onTap: () {
+                cursoId = _temaActual;
+                cursoNombre = _temaActual;
+                Navigator.pop(ctx);
+              },
+            ),
+            if (cursosSnap.docs.isNotEmpty) ...[
+              const Divider(color: Colors.white12),
+              const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+                child: Text('O vincular a un curso existente:',
+                    style: TextStyle(color: Colors.white54, fontSize: 12)),
+              ),
+              ...cursosSnap.docs.map((c) {
+                final data = c.data();
+                return ListTile(
+                  leading: CircleAvatar(
+                    backgroundColor:
+                        Color(data['color'] as int? ?? 0xFF7C6AF7),
+                    radius: 14,
+                    child: Text(
+                      (data['nombre'] as String? ?? '?')
+                          .substring(0, 1)
+                          .toUpperCase(),
+                      style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 11,
+                          fontWeight: FontWeight.bold),
+                    ),
+                  ),
+                  title: Text(data['nombre'] ?? '',
+                      style: const TextStyle(color: Colors.white)),
+                  onTap: () {
+                    cursoId = c.id;
+                    cursoNombre = data['nombre'] ?? _temaActual;
+                    Navigator.pop(ctx);
+                  },
+                );
+              }),
+            ],
+            const SizedBox(height: 20),
+          ],
+        ),
+      ),
+    );
+
+    int guardadas = 0;
+    for (final fc in _flashcards) {
+      final pregunta = fc['pregunta'] ?? '';
+      final respuesta = fc['respuesta'] ?? '';
+      if (pregunta.isEmpty || respuesta.isEmpty) continue;
+      await SRSService.guardar(FlashcardSRS(
+        id: '',
+        pregunta: pregunta,
+        respuesta: respuesta,
+        cursoId: cursoId,
+        cursoNombre: cursoNombre,
+        userId: user.uid,
+        proximaRevision: DateTime.now(),
+        creadoEn: DateTime.now(),
+      ));
+      guardadas++;
+    }
+
+    if (mounted && guardadas > 0) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('$guardadas flashcards guardadas en SRS 🧠'),
+          backgroundColor: const Color(0xFF1E1E2A),
+        ),
+      );
+    }
+  }
+
+  // ── NOTIFICACIONES DE LOGRO ──────────────────────────────────────────────────
+
+  Future<void> _notificarLogro(String tipo, String titulo, String cuerpo) async {
+    try {
+      await FirebaseFunctions.instance
+          .httpsCallable('notificarLogro')
+          .call({'tipo': tipo, 'titulo': titulo, 'cuerpo': cuerpo});
+    } catch (_) {}
+  }
+
+  // ── TYPEWRITER ───────────────────────────────────────────────────────────────
+
+  void _typewrite(String text, void Function(String) setter) {
+    _typewriterTimer?.cancel();
+    int i = 0;
+    _typewriterTimer = Timer.periodic(const Duration(milliseconds: 10), (timer) {
+      if (!mounted) { timer.cancel(); return; }
+      i = (i + 4).clamp(0, text.length);
+      setter(text.substring(0, i));
+      if (i >= text.length) timer.cancel();
+    });
+  }
+
+  // ── SIMULACRO HISTORIAL ────────────────────────────────────────────────────
+
+  Future<void> _guardarSimulacroHistorial() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null || _preguntasSimulacro.isEmpty) return;
+    final errores = <Map<String, String>>[];
+    for (int i = 0; i < _preguntasSimulacro.length; i++) {
+      final p = _preguntasSimulacro[i];
+      final correcta = p['correcta']?.toString().trim().toUpperCase() ?? '';
+      final respuesta = _respuestasUsuario[i]?.trim().toUpperCase() ?? '';
+      if (!respuesta.startsWith(correcta)) {
+        final opciones = List<String>.from(p['opciones'] ?? []);
+        final opcionCorrecta = opciones.firstWhere((o) => o.toUpperCase().startsWith(correcta), orElse: () => correcta);
+        errores.add({
+          'pregunta': p['pregunta']?.toString() ?? '',
+          'correcta': opcionCorrecta,
+          'usuarioRespondio': _respuestasUsuario[i] ?? 'Sin respuesta',
+        });
+        if (errores.length >= 10) break;
+      }
+    }
+    try {
+      await FirebaseFirestore.instance
+          .collection('simulacros_historial')
+          .doc(user.uid)
+          .collection('resultados')
+          .add({
+        'tema': _simulacroTemaController.text,
+        'nivel': _nivelSeleccionado,
+        'dificultad': _dificultadSeleccionada,
+        'puntaje': _puntaje,
+        'total': _preguntasSimulacro.length,
+        'porcentaje': (_puntaje / _preguntasSimulacro.length * 100).round(),
+        'fecha': Timestamp.now(),
+        'errores': errores,
+      });
+    } catch (_) {}
+  }
+
+  Future<void> _analizarDebilidades() async {
+    if (!await _verificarYConsumir()) return;
+    setState(() { _analizandoDebilidades = true; _analisisDebilidades = ''; });
+    final user = FirebaseAuth.instance.currentUser;
+    final tema = _simulacroTemaController.text;
+    List<Map<String, dynamic>> historial = [];
+    if (user != null) {
+      try {
+        final snap = await FirebaseFirestore.instance
+            .collection('simulacros_historial')
+            .doc(user.uid)
+            .collection('resultados')
+            .orderBy('fecha', descending: true)
+            .limit(5)
+            .get();
+        historial = snap.docs.map((d) => d.data()).toList();
+      } catch (_) {}
+    }
+    String contextoHistorial = '';
+    if (historial.isNotEmpty) {
+      contextoHistorial = historial.map((h) {
+        final errores = (h['errores'] as List<dynamic>? ?? []).map((e) => '  • ${e['pregunta']}').join('\n');
+        return 'Simulacro del ${(h['fecha'] as Timestamp?)?.toDate().toString().substring(0, 10) ?? '?'}: ${h['puntaje']}/${h['total']} (${h['porcentaje']}%)\nPreguntas falladas:\n$errores';
+      }).join('\n\n');
+    } else {
+      final erroresActuales = <String>[];
+      for (int i = 0; i < _preguntasSimulacro.length; i++) {
+        final correcta = _preguntasSimulacro[i]['correcta']?.toString().trim().toUpperCase() ?? '';
+        if (!(_respuestasUsuario[i]?.trim().toUpperCase() ?? '').startsWith(correcta)) {
+          erroresActuales.add('  • ${_preguntasSimulacro[i]['pregunta']}');
+        }
+      }
+      contextoHistorial = 'Simulacro actual: $_puntaje/${_preguntasSimulacro.length}\nPreguntas falladas:\n${erroresActuales.join('\n')}';
+    }
+    final res = await _llamarIATexto(
+      'Eres un tutor universitario analizando el desempeño de un estudiante en "$tema".\n\n'
+      'HISTORIAL DE SIMULACROS:\n$contextoHistorial\n\n'
+      'Basándote en los errores, responde en español:\n'
+      '1) SUBTEMAS DÉBILES: lista los 3-5 conceptos específicos donde más falla\n'
+      '2) PATRÓN DE ERRORES: qué tipo de preguntas le cuestan más (conceptuales, aplicación, cálculo, etc)\n'
+      '3) PLAN DE ACCIÓN: qué estudiar primero esta semana, con técnicas específicas para cada subtema débil\n'
+      '4) PRONÓSTICO: si sigue el plan, ¿qué nota podría sacar en el examen?\n'
+      'Sé directo y específico, no genérico.',
+    );
+    setState(() { _analizandoDebilidades = false; });
+    _typewrite(res ?? 'No se pudo analizar. Intenta de nuevo.', (t) => setState(() => _analisisDebilidades = t));
+  }
+
+  // ── RUTA DE APRENDIZAJE ────────────────────────────────────────────────────
+
+  Future<void> _generarRutaAprendizaje() async {
+    final materias = _materiasRutaController.text.trim();
+    if (materias.isEmpty) return;
+    if (!await _verificarYConsumir()) return;
+    setState(() { _cargandoRuta = true; _resultadoRuta = ''; });
+    final horas = _horasRutaController.text.trim().isEmpty ? '10' : _horasRutaController.text.trim();
+    final user = FirebaseAuth.instance.currentUser;
+    String contextoSimulacros = '';
+    if (user != null) {
+      try {
+        final snap = await FirebaseFirestore.instance
+            .collection('simulacros_historial')
+            .doc(user.uid)
+            .collection('resultados')
+            .orderBy('fecha', descending: true)
+            .limit(8)
+            .get();
+        if (snap.docs.isNotEmpty) {
+          final resumen = snap.docs.map((d) {
+            final data = d.data();
+            return '${data['tema']} — ${data['porcentaje']}% (${data['puntaje']}/${data['total']})';
+          }).join('\n');
+          contextoSimulacros = '\nHISTORIAL DE SIMULACROS DEL ESTUDIANTE:\n$resumen';
+        }
+      } catch (_) {}
+    }
+    final res = await _llamarIATexto(
+      'Eres un coach educativo universitario experto en planificación de estudio.\n'
+      'Carrera del estudiante: ${_carrera.isNotEmpty ? _carrera : 'Universitaria'}\n'
+      'Materias y temas de esta semana: $materias\n'
+      'Horas disponibles para estudiar: $horas horas en la semana$contextoSimulacros\n\n'
+      'Genera un PLAN DE ESTUDIO SEMANAL PERSONALIZADO en español que incluya:\n'
+      '1) DISTRIBUCIÓN DIARIA: qué estudiar cada día (lunes a domingo) con bloques de tiempo específicos\n'
+      '2) TÉCNICA RECOMENDADA para cada materia según el tipo de contenido\n'
+      '3) PRIORIDADES: qué estudiar primero y por qué (basado en el historial si existe)\n'
+      '4) MOMENTOS DE REPASO: cuándo repasar lo aprendido antes del examen\n'
+      '5) CONSEJO DEL DÍA: una motivación o tip clave para esta semana.\n'
+      'Sé concreto con horarios (ej: "Lunes 7-8pm: Cálculo — repaso de derivadas con ejercicios").',
+    );
+    setState(() { _cargandoRuta = false; });
+    _typewrite(res ?? 'Error al generar. Intenta de nuevo.', (t) => setState(() => _resultadoRuta = t));
+    _mostrarIntersticial();
+    if (res != null) {
+      _notificarLogro(
+        'ruta_completada',
+        '🗺️ ¡Tu ruta de estudio está lista!',
+        'Tu plan personalizado para esta semana ya está generado. ¡A estudiar! 📚',
+      );
+    }
+  }
+
+  // ── HERRAMIENTAS: métodos ─────────────────────────────────────────────────
+
+  Future<void> _compararConceptos() async {
+    final a = _concepto1Controller.text.trim();
+    final b = _concepto2Controller.text.trim();
+    if (a.isEmpty || b.isEmpty) return;
+    if (!await _verificarYConsumir()) return;
+    setState(() { _cargandoComparador = true; _resultadoComparador = ''; });
+    final res = await _llamarIATexto(
+      'Eres un tutor universitario. Compara "$a" y "$b" de forma clara y estructurada en español. '
+      'Incluye: 1) Definición breve de cada uno, 2) Tabla de diferencias clave (al menos 5 aspectos), '
+      '3) Similitudes importantes, 4) Cuándo usar/aplicar cada uno. Sé concreto y didáctico.',
+    );
+    setState(() { _cargandoComparador = false; });
+    _typewrite(res ?? 'Error al comparar. Intenta de nuevo.', (t) => setState(() => _resultadoComparador = t));
+    _mostrarIntersticial();
+  }
+
+  Future<void> _generarNemotecnia() async {
+    final concepto = _nemotecniaController.text.trim();
+    if (concepto.isEmpty) return;
+    if (!await _verificarYConsumir()) return;
+    setState(() { _cargandoNemotecnia = true; _resultadoNemotecnia = ''; });
+    final res = await _llamarIATexto(
+      'Eres un experto en técnicas de memorización. Para el concepto o lista: "$concepto", genera en español:\n'
+      '1) Una nemotecnia o acrónimo fácil de recordar\n'
+      '2) Una analogía con algo cotidiano\n'
+      '3) Una historia corta o imagen mental que lo fije en la memoria\n'
+      '4) Un truco extra si aplica. Sé creativo y memorable.',
+    );
+    setState(() { _cargandoNemotecnia = false; });
+    _typewrite(res ?? 'Error al generar. Intenta de nuevo.', (t) => setState(() => _resultadoNemotecnia = t));
+    _mostrarIntersticial();
+  }
+
+  Future<void> _corregirRedaccion() async {
+    final texto = _correctorController.text.trim();
+    if (texto.isEmpty) return;
+    if (!await _verificarYConsumir()) return;
+    setState(() { _cargandoCorrector = true; _resultadoCorrector = ''; });
+    final res = await _llamarIATexto(
+      'Eres un corrector académico universitario experto. Analiza este texto en español:\n\n"$texto"\n\n'
+      'Proporciona:\n1) TEXTO CORREGIDO: versión mejorada con errores corregidos\n'
+      '2) ERRORES ENCONTRADOS: lista de los errores de gramática/ortografía/puntuación corregidos\n'
+      '3) MEJORAS DE ESTILO: sugerencias para elevar el nivel académico\n'
+      '4) PUNTUACIÓN ACADÉMICA: del 1 al 10 con justificación breve.',
+    );
+    setState(() { _cargandoCorrector = false; });
+    _typewrite(res ?? 'Error al corregir. Intenta de nuevo.', (t) => setState(() => _resultadoCorrector = t));
+  }
+
+  Future<void> _iniciarChatHerramientas() async {
+    final tema = _temaHerramientasController.text.trim();
+    if (tema.isEmpty) return;
+    if (!await _verificarYConsumir()) return;
+    final esFeynman = _subModoHerramientas == 3;
+    final mensajeInicio = esFeynman
+        ? 'Perfecto. Ahora explícame "$tema" con tus propias palabras, como si yo no supiera nada del tema. No te preocupes por ser perfecto, simplemente explícalo como lo entiendes.'
+        : 'Bien. Cuéntame, ¿qué sabes sobre "$tema"? Empieza por lo más básico.';
+    setState(() {
+      _chatHerramientas = [{'role': 'ia', 'text': mensajeInicio}];
+      _chatHerramientasIniciado = true;
+      _cargandoChatHerramientas = false;
+    });
+  }
+
+  Future<void> _enviarMensajeChatHerramientas() async {
+    final texto = _chatHerramientasController.text.trim();
+    if (texto.isEmpty || _cargandoChatHerramientas) return;
+    if (!await _verificarYConsumir()) return;
+    final tema = _temaHerramientasController.text.trim();
+    _chatHerramientasController.clear();
+    setState(() { _chatHerramientas.add({'role': 'user', 'text': texto}); _cargandoChatHerramientas = true; });
+    Future.delayed(const Duration(milliseconds: 100), () {
+      if (_chatHerramientasScroll.hasClients) _chatHerramientasScroll.animateTo(_chatHerramientasScroll.position.maxScrollExtent, duration: const Duration(milliseconds: 300), curve: Curves.easeOut);
+    });
+    final historial = _chatHerramientas.map((m) => {'role': m['role'] == 'ia' ? 'assistant' : 'user', 'content': m['text']!}).toList();
+    final esFeynman = _subModoHerramientas == 3;
+    final systemMsg = esFeynman
+        ? {'role': 'user', 'content': 'Eres un tutor que aplica la Técnica Feynman para el tema "$tema". '
+            'El estudiante te explicará el tema. Tu rol es: 1) Identificar qué partes explicó bien, '
+            '2) Señalar dónde hay vacíos o confusión con preguntas guía amables, '
+            '3) NO dar la respuesta directamente, sino hacer preguntas que lo lleven a descubrirla. '
+            'Máximo 150 palabras por respuesta. Responde en español.'}
+        : {'role': 'user', 'content': 'Eres un Tutor Socrático para el tema "$tema". '
+            'Nunca des la respuesta directa. En cambio, haz preguntas que guíen al estudiante a razonar y llegar solo a la conclusión. '
+            'Usa analogías con situaciones cotidianas cuando sea útil. '
+            'Máximo 120 palabras por respuesta. Responde en español.'};
+    final (data, _) = await _llamarCloudFunction(
+      messages: [systemMsg, ...historial.skip(1)],
+      maxTokens: 500,
+    );
+    String respuesta = 'No pude responder. Intenta de nuevo.';
+    try { if (data != null) respuesta = (data['content'] as List).first['text'] as String; } catch (_) {}
+    setState(() { _chatHerramientas.add({'role': 'ia', 'text': respuesta}); _cargandoChatHerramientas = false; });
+    Future.delayed(const Duration(milliseconds: 100), () {
+      if (_chatHerramientasScroll.hasClients) _chatHerramientasScroll.animateTo(_chatHerramientasScroll.position.maxScrollExtent, duration: const Duration(milliseconds: 300), curve: Curves.easeOut);
+    });
+  }
+
+  // ── EVALÚAME: métodos ─────────────────────────────────────────────────────
+
+  Future<void> _iniciarEvaluame() async {
+    if (_temaActual.isEmpty) return;
+    if (!await _verificarYConsumir()) return;
+    setState(() { _cargandoEval = true; });
+    final res = await _llamarIATexto(
+      'Eres un profesor universitario evaluando oralmente al estudiante sobre "$_temaActual". '
+      'Haz la PRIMERA pregunta de evaluación. Debe ser abierta (no de sí/no), sobre un concepto clave del tema. '
+      'Solo escribe la pregunta, sin explicaciones adicionales. Máximo 2 oraciones. En español.',
+    );
+    setState(() {
+      _evalMensajes = [{'role': 'ia', 'text': res ?? '¿Puedes explicarme el concepto principal de $_temaActual con tus propias palabras?'}];
+      _evalIniciado = true;
+      _cargandoEval = false;
+    });
+  }
+
+  Future<void> _enviarRespuestaEvaluame() async {
+    final respuesta = _evalController.text.trim();
+    if (respuesta.isEmpty || _cargandoEval) return;
+    if (!await _verificarYConsumir()) return;
+    _evalController.clear();
+    setState(() { _evalMensajes.add({'role': 'user', 'text': respuesta}); _cargandoEval = true; });
+    Future.delayed(const Duration(milliseconds: 100), () {
+      if (_evalScroll.hasClients) _evalScroll.animateTo(_evalScroll.position.maxScrollExtent, duration: const Duration(milliseconds: 300), curve: Curves.easeOut);
+    });
+    final historial = _evalMensajes.map((m) => {'role': m['role'] == 'ia' ? 'assistant' : 'user', 'content': m['text']!}).toList();
+    final systemMsg = {'role': 'user', 'content':
+      'Eres un profesor universitario evaluando oralmente sobre "$_temaActual". Tu flujo es:\n'
+      '1) Evalúa la respuesta del estudiante: di si es correcta, parcial o incorrecta\n'
+      '2) Da retroalimentación breve y constructiva (máx 2 oraciones)\n'
+      '3) Haz la SIGUIENTE pregunta sobre otro aspecto del tema\n'
+      'Si el estudiante lleva 5 o más intercambios, en vez de nueva pregunta da un resumen de su desempeño con calificación del 1 al 20.\n'
+      'Máximo 180 palabras. En español.'
+    };
+    final (data, _) = await _llamarCloudFunction(
+      messages: [systemMsg, ...historial.skip(1)],
+      maxTokens: 600,
+    );
+    String textoIA = 'No pude responder. Intenta de nuevo.';
+    try { if (data != null) textoIA = (data['content'] as List).first['text'] as String; } catch (_) {}
+    setState(() { _evalMensajes.add({'role': 'ia', 'text': textoIA}); _cargandoEval = false; });
+    Future.delayed(const Duration(milliseconds: 100), () {
+      if (_evalScroll.hasClients) _evalScroll.animateTo(_evalScroll.position.maxScrollExtent, duration: const Duration(milliseconds: 300), curve: Curves.easeOut);
+    });
+  }
+
+  // ── Build ──────────────────────────────────────────────────────────────────
 
   @override
   Widget build(BuildContext context) {
@@ -451,10 +1250,47 @@ class _IAPageState extends State<IAPage> {
       backgroundColor: const Color(0xFF0F0F14),
       appBar: AppBar(
         backgroundColor: const Color(0xFF0F0F14),
-        title: const Row(children: [
-          Text('Estudiar con IA', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-          SizedBox(width: 6),
-          Icon(Icons.lock, color: Color(0xFF5DE0C5), size: 14),
+        title: Row(children: [
+          const Text('Estudiar con IA', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+          const SizedBox(width: 8),
+          if (_busquedasRestantes < 999)
+            GestureDetector(
+              onTap: _busquedasRestantes == 0 ? _mostrarPasarela : null,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 3),
+                decoration: BoxDecoration(
+                  color: _busquedasRestantes == 0
+                      ? const Color(0xFFF7584A).withOpacity(0.18)
+                      : const Color(0xFF5DE0C5).withOpacity(0.13),
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(
+                    color: _busquedasRestantes == 0
+                        ? const Color(0xFFF7584A).withOpacity(0.5)
+                        : const Color(0xFF5DE0C5).withOpacity(0.35),
+                  ),
+                ),
+                child: Row(mainAxisSize: MainAxisSize.min, children: [
+                  Icon(
+                    _busquedasRestantes == 0 ? Icons.lock_outline : Icons.bolt,
+                    color: _busquedasRestantes == 0
+                        ? const Color(0xFFF7584A)
+                        : const Color(0xFF5DE0C5),
+                    size: 11,
+                  ),
+                  const SizedBox(width: 3),
+                  Text(
+                    _busquedasRestantes == 0 ? 'Agotadas' : '$_busquedasRestantes hoy',
+                    style: TextStyle(
+                      color: _busquedasRestantes == 0
+                          ? const Color(0xFFF7584A)
+                          : const Color(0xFF5DE0C5),
+                      fontSize: 11,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ]),
+              ),
+            ),
         ]),
         iconTheme: const IconThemeData(color: Colors.white),
         actions: [
@@ -472,14 +1308,18 @@ class _IAPageState extends State<IAPage> {
             margin: const EdgeInsets.all(16),
             padding: const EdgeInsets.all(4),
             decoration: BoxDecoration(color: const Color(0xFF1E1E2A), borderRadius: BorderRadius.circular(12)),
-            child: Row(children: [
-              _modoBtn('Estudiar', Icons.book, 0),
-              _modoBtn('Scanner', Icons.camera_alt, 1),
-              _modoBtn('Docs', Icons.description, 2),
-              _modoBtn('Simulacro', Icons.quiz, 3),
-            ]),
+            child: SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(children: [
+                _modoBtn('Estudiar', Icons.book, 0),
+                _modoBtn('Scanner', Icons.camera_alt, 1),
+                _modoBtn('Docs', Icons.description, 2),
+                _modoBtn('Simulacro', Icons.quiz, 3),
+                _modoBtn('Herramientas', Icons.build_circle_outlined, 4),
+              ]),
+            ),
           ),
-          Expanded(child: _modoActual == 0 ? _buildEstudio() : _modoActual == 1 ? _buildScanner() : _modoActual == 2 ? _buildDocumento() : _buildSimulacro()),
+          Expanded(child: _modoActual == 0 ? _buildEstudio() : _modoActual == 1 ? _buildScanner() : _modoActual == 2 ? _buildDocumento() : _modoActual == 3 ? _buildSimulacro() : _buildHerramientas()),
         ],
       ),
     );
@@ -487,18 +1327,29 @@ class _IAPageState extends State<IAPage> {
 
   Widget _modoBtn(String label, IconData icono, int index) {
     final selected = _modoActual == index;
-    return Expanded(
-      child: GestureDetector(
-        onTap: () => setState(() => _modoActual = index),
-        child: Container(
-          padding: const EdgeInsets.symmetric(vertical: 8),
-          decoration: BoxDecoration(color: selected ? const Color(0xFF7C6AF7) : Colors.transparent, borderRadius: BorderRadius.circular(8)),
-          child: Column(children: [
-            Icon(icono, color: selected ? Colors.white : Colors.white38, size: 16),
-            const SizedBox(height: 2),
-            Text(label, style: TextStyle(color: selected ? Colors.white : Colors.white38, fontSize: 10)),
-          ]),
+    return _TapScale(
+      onTap: () => setState(() => _modoActual = index),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 180),
+        margin: const EdgeInsets.symmetric(horizontal: 2),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+        decoration: BoxDecoration(
+          color: selected ? const Color(0xFF7C6AF7) : Colors.transparent,
+          borderRadius: BorderRadius.circular(8),
         ),
+        child: Column(mainAxisSize: MainAxisSize.min, children: [
+          Icon(icono, color: selected ? Colors.white : Colors.white38, size: 16),
+          const SizedBox(height: 2),
+          Text(
+            label,
+            style: TextStyle(
+              color: selected ? Colors.white : Colors.white38,
+              fontSize: 10,
+              fontWeight: selected ? FontWeight.bold : FontWeight.normal,
+            ),
+            textAlign: TextAlign.center,
+          ),
+        ]),
       ),
     );
   }
@@ -562,15 +1413,29 @@ class _IAPageState extends State<IAPage> {
               const SizedBox(height: 12),
               Text(_respuestaImagen.replaceAll('###', '').replaceAll('##', '').replaceAll('#', '').replaceAll('**', '').replaceAll('*', ''), style: const TextStyle(color: Colors.white, fontSize: 14, height: 1.6)),
               const SizedBox(height: 12),
-              GestureDetector(
-                onTap: () => setState(() { _respuestaImagen = ''; _imagenSeleccionada = null; _preguntaScannerController.clear(); }),
-                child: Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.symmetric(vertical: 10),
-                  decoration: BoxDecoration(color: const Color(0xFF7C6AF7).withOpacity(0.15), borderRadius: BorderRadius.circular(8), border: Border.all(color: const Color(0xFF7C6AF7).withOpacity(0.3))),
-                  child: const Center(child: Text('Nueva consulta', style: TextStyle(color: Color(0xFF7C6AF7), fontSize: 13, fontWeight: FontWeight.w600))),
+              Row(children: [
+                Expanded(
+                  child: GestureDetector(
+                    onTap: _compartirRespuestaScanner,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(vertical: 10),
+                      decoration: BoxDecoration(color: const Color(0xFFF7584A).withOpacity(0.15), borderRadius: BorderRadius.circular(8), border: Border.all(color: const Color(0xFFF7584A).withOpacity(0.3))),
+                      child: const Row(mainAxisAlignment: MainAxisAlignment.center, children: [Icon(Icons.download, color: Color(0xFFF7584A), size: 14), SizedBox(width: 4), Text('Guardar PDF', style: TextStyle(color: Color(0xFFF7584A), fontSize: 12, fontWeight: FontWeight.w600))]),
+                    ),
+                  ),
                 ),
-              ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: GestureDetector(
+                    onTap: () => setState(() { _respuestaImagen = ''; _imagenSeleccionada = null; _preguntaScannerController.clear(); }),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(vertical: 10),
+                      decoration: BoxDecoration(color: const Color(0xFF7C6AF7).withOpacity(0.15), borderRadius: BorderRadius.circular(8), border: Border.all(color: const Color(0xFF7C6AF7).withOpacity(0.3))),
+                      child: const Center(child: Text('Nueva consulta', style: TextStyle(color: Color(0xFF7C6AF7), fontSize: 13, fontWeight: FontWeight.w600))),
+                    ),
+                  ),
+                ),
+              ]),
             ]),
           ),
         ],
@@ -676,11 +1541,15 @@ class _IAPageState extends State<IAPage> {
             ],
             if (_resumen.isNotEmpty) ...[
               const SizedBox(height: 12),
-              SingleChildScrollView(scrollDirection: Axis.horizontal, child: Row(children: [_tabBtn('Resumen', 0), _tabBtn('Preguntas', 1), _tabBtn('Flashcards', 2), _tabBtn('Tips', 3), _tabBtn('Plan', 4), _tabBtn('Ejercicios', 5), _tabBtn('Mapa', 6)])),
+              SingleChildScrollView(scrollDirection: Axis.horizontal, child: Row(children: [_tabBtn('Resumen', 0), _tabBtn('Preguntas', 1), _tabBtn('Flashcards', 2), _tabBtn('Tips', 3), _tabBtn('Plan', 4), _tabBtn('Ejercicios', 5), _tabBtn('Mapa', 6), _tabBtn('Evalúame', 7)])),
             ],
           ]),
         ),
         if (_resumen.isNotEmpty) Expanded(child: Padding(padding: const EdgeInsets.fromLTRB(20, 8, 20, 0), child: _buildContenido())),
+        if (_resumen.isEmpty && !_cargando) Padding(
+          padding: const EdgeInsets.fromLTRB(20, 8, 20, 0),
+          child: _buildTemasPopulares(),
+        ),
         if (_resumen.isEmpty) const Spacer(),
         if (_resumen.isNotEmpty)
           Container(
@@ -742,13 +1611,528 @@ class _IAPageState extends State<IAPage> {
     switch (_tabSeleccionada) {
       case 0: return SingleChildScrollView(child: Container(padding: const EdgeInsets.all(16), decoration: BoxDecoration(color: const Color(0xFF1E1E2A), borderRadius: BorderRadius.circular(12)), child: Text(_resumen, style: const TextStyle(color: Colors.white, fontSize: 14, height: 1.6))));
       case 1: return ListView.builder(itemCount: _preguntas.length, itemBuilder: (context, i) => GestureDetector(onTap: () => setState(() => _preguntasAbiertas[i] = !_preguntasAbiertas[i]), child: Container(margin: const EdgeInsets.only(bottom: 8), padding: const EdgeInsets.all(14), decoration: BoxDecoration(color: const Color(0xFF1E1E2A), borderRadius: BorderRadius.circular(12)), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Row(children: [Expanded(child: Text('${i + 1}. ${_preguntas[i]['pregunta'] ?? ''}', style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w600))), Icon(_preguntasAbiertas[i] ? Icons.expand_less : Icons.expand_more, color: const Color(0xFF7C6AF7))]), if (_preguntasAbiertas[i]) ...[const SizedBox(height: 8), const Divider(color: Colors.white12), const SizedBox(height: 8), Text('${_preguntas[i]['respuesta'] ?? ''}', style: const TextStyle(color: Colors.white70, fontSize: 13, height: 1.5))]]))));
-      case 2: return ListView.builder(itemCount: _flashcards.length, itemBuilder: (context, i) => Container(margin: const EdgeInsets.only(bottom: 8), padding: const EdgeInsets.all(14), decoration: BoxDecoration(color: const Color(0xFF1E1E2A), borderRadius: BorderRadius.circular(12)), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text('${_flashcards[i]['pregunta'] ?? ''}', style: const TextStyle(color: Color(0xFF7C6AF7), fontWeight: FontWeight.bold, fontSize: 14)), const SizedBox(height: 8), const Divider(color: Colors.white12), const SizedBox(height: 8), Text('${_flashcards[i]['respuesta'] ?? ''}', style: const TextStyle(color: Colors.white70, fontSize: 13, height: 1.5))])));
+      case 2: return Column(
+        children: [
+          GestureDetector(
+            onTap: _guardarEnSRS,
+            child: Container(
+              margin: const EdgeInsets.only(bottom: 10),
+              padding: const EdgeInsets.symmetric(vertical: 12),
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(
+                    colors: [Color(0xFF7C6AF7), Color(0xFF5A4ED4)]),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Icon(Icons.save_alt, color: Colors.white, size: 16),
+                  const SizedBox(width: 8),
+                  Text(
+                    'Guardar ${_flashcards.length} flashcards en SRS 🧠',
+                    style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 13,
+                        fontWeight: FontWeight.bold),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          Expanded(
+            child: ListView.builder(
+              itemCount: _flashcards.length,
+              itemBuilder: (context, i) => Container(
+                margin: const EdgeInsets.only(bottom: 8),
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                    color: const Color(0xFF1E1E2A),
+                    borderRadius: BorderRadius.circular(12)),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('${_flashcards[i]['pregunta'] ?? ''}',
+                        style: const TextStyle(
+                            color: Color(0xFF7C6AF7),
+                            fontWeight: FontWeight.bold,
+                            fontSize: 14)),
+                    const SizedBox(height: 8),
+                    const Divider(color: Colors.white12),
+                    const SizedBox(height: 8),
+                    Text('${_flashcards[i]['respuesta'] ?? ''}',
+                        style: const TextStyle(
+                            color: Colors.white70,
+                            fontSize: 13,
+                            height: 1.5)),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ],
+      );
       case 3: return ListView.builder(itemCount: _tips.length, itemBuilder: (context, i) => Container(margin: const EdgeInsets.only(bottom: 8), padding: const EdgeInsets.all(14), decoration: BoxDecoration(color: const Color(0xFF1E1E2A), borderRadius: BorderRadius.circular(12)), child: Text('💡 ${_tips[i]}', style: const TextStyle(color: Colors.white, fontSize: 14, height: 1.5))));
       case 4: return ListView.builder(itemCount: _planEstudio.length, itemBuilder: (context, i) => Container(margin: const EdgeInsets.only(bottom: 8), padding: const EdgeInsets.all(14), decoration: BoxDecoration(color: const Color(0xFF1E1E2A), borderRadius: BorderRadius.circular(12), border: Border.all(color: const Color(0xFF7C6AF7).withOpacity(0.3))), child: Row(children: [Container(width: 32, height: 32, decoration: BoxDecoration(color: const Color(0xFF7C6AF7), borderRadius: BorderRadius.circular(8)), child: Center(child: Text('${i + 1}', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)))), const SizedBox(width: 12), Expanded(child: Text(_planEstudio[i], style: const TextStyle(color: Colors.white, fontSize: 13, height: 1.5)))])));
       case 5: return ListView.builder(itemCount: _ejercicios.length, itemBuilder: (context, i) => GestureDetector(onTap: () => setState(() => _ejerciciosAbiertos[i] = !_ejerciciosAbiertos[i]), child: Container(margin: const EdgeInsets.only(bottom: 8), padding: const EdgeInsets.all(14), decoration: BoxDecoration(color: const Color(0xFF1E1E2A), borderRadius: BorderRadius.circular(12)), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Row(children: [Expanded(child: Text('📝 ${_ejercicios[i]['problema'] ?? ''}', style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w600))), Icon(_ejerciciosAbiertos[i] ? Icons.expand_less : Icons.expand_more, color: const Color(0xFF5DE0C5))]), if (_ejerciciosAbiertos[i]) ...[const SizedBox(height: 8), const Divider(color: Colors.white12), const SizedBox(height: 8), Text('${_ejercicios[i]['solucion'] ?? ''}', style: const TextStyle(color: Color(0xFF5DE0C5), fontSize: 13, height: 1.5))]]))));
-      case 6: return SingleChildScrollView(child: Container(padding: const EdgeInsets.all(16), decoration: BoxDecoration(color: const Color(0xFF1E1E2A), borderRadius: BorderRadius.circular(12)), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: _mapaConceptual.asMap().entries.map((entry) { final i = entry.key; final concepto = entry.value; return Padding(padding: EdgeInsets.only(left: i == 0 ? 0 : 16, bottom: 8), child: Row(children: [if (i > 0) ...[Container(width: 2, height: 20, color: const Color(0xFF7C6AF7)), const SizedBox(width: 8)], Expanded(child: Container(padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8), decoration: BoxDecoration(color: i == 0 ? const Color(0xFF7C6AF7) : const Color(0xFF1A1A40), borderRadius: BorderRadius.circular(8)), child: Text(concepto, style: TextStyle(color: i == 0 ? Colors.white : const Color(0xFF7C6AF7), fontWeight: i == 0 ? FontWeight.bold : FontWeight.normal, fontSize: i == 0 ? 15 : 13))))])); }).toList())));
+      case 6: return _buildMapaVisual();
+      case 7: return _buildEvaluame();
       default: return const SizedBox();
     }
+  }
+
+  int? get _notaEvaluame {
+    final iaMsgs = _evalMensajes.where((m) => m['role'] == 'ia').toList();
+    if (iaMsgs.isEmpty) return null;
+    final texto = iaMsgs.last['text'] ?? '';
+    final regex = RegExp(r'(\d{1,2})\s*/\s*20', caseSensitive: false);
+    final match = regex.firstMatch(texto);
+    if (match == null) return null;
+    final n = int.tryParse(match.group(1) ?? '');
+    return (n != null && n >= 1 && n <= 20) ? n : null;
+  }
+
+  Widget _buildNotaCard(int nota) {
+    final color = nota >= 14 ? const Color(0xFF5DE0C5) : nota >= 11 ? const Color(0xFFF7A26A) : const Color(0xFFF7584A);
+    final msg = nota >= 14 ? '¡Excelente resultado!' : nota >= 11 ? 'Bien, sigue mejorando' : 'Sigue practicando';
+    return Container(
+      margin: const EdgeInsets.fromLTRB(12, 8, 12, 0),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(colors: [color.withOpacity(0.2), const Color(0xFF0F0F14)]),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: color.withOpacity(0.55)),
+      ),
+      child: Row(children: [
+        Container(
+          width: 56, height: 56,
+          decoration: BoxDecoration(color: color.withOpacity(0.15), shape: BoxShape.circle, border: Border.all(color: color, width: 2)),
+          child: Center(child: Text('$nota', style: TextStyle(color: color, fontSize: 22, fontWeight: FontWeight.bold))),
+        ),
+        const SizedBox(width: 14),
+        Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text('Calificación: $nota / 20', style: TextStyle(color: color, fontWeight: FontWeight.bold, fontSize: 15)),
+          const SizedBox(height: 2),
+          Text(msg, style: const TextStyle(color: Colors.white70, fontSize: 12)),
+        ])),
+      ]),
+    );
+  }
+
+  Widget _buildEvaluame() {
+    if (_temaActual.isEmpty) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(mainAxisSize: MainAxisSize.min, children: [
+            Container(padding: const EdgeInsets.all(20), decoration: BoxDecoration(color: const Color(0xFFF7A26A).withOpacity(0.12), shape: BoxShape.circle), child: const Icon(Icons.info_outline, color: Color(0xFFF7A26A), size: 44)),
+            const SizedBox(height: 16),
+            const Text('Primero estudia un tema', style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 8),
+            const Text('Ve a la pestaña Estudiar, ingresa un tema y genera el contenido. Luego regresa aquí para ser evaluado.', style: TextStyle(color: Colors.white54, fontSize: 13), textAlign: TextAlign.center),
+          ]),
+        ),
+      );
+    }
+    if (!_evalIniciado) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(mainAxisSize: MainAxisSize.min, children: [
+            Container(padding: const EdgeInsets.all(20), decoration: BoxDecoration(color: const Color(0xFFF7A26A).withOpacity(0.12), shape: BoxShape.circle), child: const Icon(Icons.record_voice_over, color: Color(0xFFF7A26A), size: 44)),
+            const SizedBox(height: 16),
+            const Text('Evalúame', style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 8),
+            Text('La IA te hará preguntas sobre "$_temaActual" y evaluará tus respuestas.\nAl final recibirás una nota del 1 al 20.', style: const TextStyle(color: Colors.white54, fontSize: 13), textAlign: TextAlign.center),
+            const SizedBox(height: 24),
+            _cargandoEval
+                ? const CircularProgressIndicator(color: Color(0xFFF7A26A))
+                : SizedBox(width: double.infinity, child: ElevatedButton.icon(onPressed: _iniciarEvaluame, icon: const Icon(Icons.play_arrow, color: Colors.white), label: const Text('Iniciar evaluación oral', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)), style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFF7A26A), padding: const EdgeInsets.symmetric(vertical: 14), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))))),
+          ]),
+        ),
+      );
+    }
+    final nota = _notaEvaluame;
+    return Column(children: [
+      Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+        color: const Color(0xFF1E1E2A),
+        child: Row(children: [
+          const Icon(Icons.record_voice_over, color: Color(0xFFF7A26A), size: 14),
+          const SizedBox(width: 6),
+          Expanded(child: Text('Evaluación oral — $_temaActual', style: const TextStyle(color: Color(0xFFF7A26A), fontSize: 12, fontWeight: FontWeight.w600), overflow: TextOverflow.ellipsis)),
+          GestureDetector(onTap: () => setState(() { _evalMensajes = []; _evalIniciado = false; }), child: const Icon(Icons.refresh, color: Colors.white38, size: 18)),
+        ]),
+      ),
+      if (nota != null) _buildNotaCard(nota),
+      Expanded(
+        child: ListView.builder(
+          controller: _evalScroll,
+          padding: const EdgeInsets.all(12),
+          itemCount: _evalMensajes.length + (_cargandoEval ? 1 : 0),
+          itemBuilder: (context, i) {
+            if (i == _evalMensajes.length) {
+              return const Padding(padding: EdgeInsets.only(left: 8, bottom: 6), child: Row(children: [SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFFF7A26A))), SizedBox(width: 8), Text('Evaluando...', style: TextStyle(color: Colors.white38, fontSize: 12))]));
+            }
+            final msg = _evalMensajes[i];
+            final esUsuario = msg['role'] == 'user';
+            return Align(
+              alignment: esUsuario ? Alignment.centerRight : Alignment.centerLeft,
+              child: Container(
+                margin: const EdgeInsets.only(bottom: 8),
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.82),
+                decoration: BoxDecoration(
+                  color: esUsuario ? const Color(0xFFF7A26A).withOpacity(0.85) : const Color(0xFF1E1E2A),
+                  borderRadius: BorderRadius.circular(14),
+                  border: esUsuario ? null : Border.all(color: const Color(0xFFF7A26A).withOpacity(0.25)),
+                ),
+                child: Text(msg['text'] ?? '', style: TextStyle(color: esUsuario ? Colors.white : Colors.white70, fontSize: 13, height: 1.5)),
+              ),
+            );
+          },
+        ),
+      ),
+      Container(
+        padding: const EdgeInsets.fromLTRB(12, 8, 12, 12),
+        decoration: BoxDecoration(color: const Color(0xFF1E1E2A), border: Border(top: BorderSide(color: const Color(0xFFF7A26A).withOpacity(0.2)))),
+        child: Row(children: [
+          Expanded(child: TextField(controller: _evalController, style: const TextStyle(color: Colors.white, fontSize: 13), decoration: const InputDecoration(hintText: 'Escribe tu respuesta...', hintStyle: TextStyle(color: Colors.white38, fontSize: 13), contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10), filled: true, fillColor: Color(0xFF0F0F14), border: OutlineInputBorder(borderRadius: BorderRadius.all(Radius.circular(10)), borderSide: BorderSide.none)), onSubmitted: (_) => _enviarRespuestaEvaluame())),
+          const SizedBox(width: 8),
+          _TapScale(onTap: _enviarRespuestaEvaluame, child: Container(padding: const EdgeInsets.all(10), decoration: BoxDecoration(color: const Color(0xFFF7A26A), borderRadius: BorderRadius.circular(10)), child: const Icon(Icons.send, color: Colors.white, size: 18))),
+        ]),
+      ),
+    ]);
+  }
+
+  Widget _buildHerramientas() {
+    if (_subModoHerramientas == -1) return _buildHerramientasGrid();
+    const nombres = ['Comparador', 'Nemotecnia', 'Corrector', 'Feynman', 'Socrático', 'Mi Ruta'];
+    return Column(children: [
+      Padding(
+        padding: const EdgeInsets.fromLTRB(16, 10, 16, 4),
+        child: Row(children: [
+          _TapScale(
+            onTap: () => setState(() {
+              _subModoHerramientas = -1;
+              _chatHerramientas = [];
+              _chatHerramientasIniciado = false;
+              _temaHerramientasController.clear();
+            }),
+            child: Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(color: const Color(0xFF7C6AF7).withOpacity(0.15), borderRadius: BorderRadius.circular(8)),
+              child: const Icon(Icons.arrow_back_ios_new, color: Color(0xFF7C6AF7), size: 14),
+            ),
+          ),
+          const SizedBox(width: 10),
+          Text(
+            nombres[_subModoHerramientas],
+            style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 15),
+          ),
+        ]),
+      ),
+      Expanded(child: _subModoHerramientas == 0 ? _buildComparador() : _subModoHerramientas == 1 ? _buildNemotecnia() : _subModoHerramientas == 2 ? _buildCorrector() : _subModoHerramientas == 5 ? _buildRutaAprendizaje() : _buildChatHerramientas()),
+    ]);
+  }
+
+  Widget _buildHerramientasGrid() {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(16),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        const Text('HERRAMIENTAS DE ESTUDIO', style: TextStyle(color: Colors.white54, fontSize: 11, fontWeight: FontWeight.w700, letterSpacing: 1)),
+        const SizedBox(height: 14),
+        GridView.count(
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          crossAxisCount: 2,
+          crossAxisSpacing: 12,
+          mainAxisSpacing: 12,
+          childAspectRatio: 0.88,
+          children: [
+            _herramientaCard('Comparador', 'Compara dos conceptos lado a lado', Icons.compare_arrows, const Color(0xFF7C6AF7), const Color(0xFF5A4ED4), 0),
+            _herramientaCard('Nemotecnia', 'Técnicas de memorización y asociación', Icons.lightbulb_outline, const Color(0xFFF7A26A), const Color(0xFFD06020), 1),
+            _herramientaCard('Corrector', 'Mejora y corrige textos académicos', Icons.spellcheck, const Color(0xFF5DE0C5), const Color(0xFF2A9080), 2),
+            _herramientaCard('Feynman', 'Aprende explicándole al tutor IA', Icons.psychology, const Color(0xFF4A90E2), const Color(0xFF2D60C0), 3),
+            _herramientaCard('Socrático', 'Razona con preguntas guiadas', Icons.question_answer, const Color(0xFFF7584A), const Color(0xFFB03020), 4),
+            _herramientaCard('Mi Ruta', 'Plan semanal personalizado con IA', Icons.route, const Color(0xFF56D98B), const Color(0xFF2A9A55), 5),
+          ],
+        ),
+      ]),
+    );
+  }
+
+  Widget _herramientaCard(String nombre, String desc, IconData icono, Color c1, Color c2, int idx) {
+    return _TapScale(
+      onTap: () => setState(() {
+        _subModoHerramientas = idx;
+        _chatHerramientas = [];
+        _chatHerramientasIniciado = false;
+        _temaHerramientasController.clear();
+      }),
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            colors: [c1.withOpacity(0.18), const Color(0xFF1E1E2A)],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: c1.withOpacity(0.5)),
+        ),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(colors: [c1, c2]),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(icono, color: Colors.white, size: 26),
+            ),
+            const SizedBox(height: 10),
+            Text(nombre, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13), textAlign: TextAlign.center),
+            const SizedBox(height: 4),
+            Text(desc, style: const TextStyle(color: Colors.white54, fontSize: 11, height: 1.3), textAlign: TextAlign.center, maxLines: 2, overflow: TextOverflow.ellipsis),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildComparador() {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(16),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Container(padding: const EdgeInsets.all(12), decoration: BoxDecoration(color: const Color(0xFF1E1E2A), borderRadius: BorderRadius.circular(12)), child: const Row(children: [Icon(Icons.compare_arrows, color: Color(0xFF7C6AF7), size: 20), SizedBox(width: 8), Expanded(child: Text('Escribe dos conceptos y la IA los comparará con tabla de diferencias, similitudes y cuándo usar cada uno.', style: TextStyle(color: Colors.white54, fontSize: 12)))])),
+        const SizedBox(height: 14),
+        TextField(controller: _concepto1Controller, style: const TextStyle(color: Colors.white), decoration: InputDecoration(hintText: 'Ej: Mitosis', hintStyle: const TextStyle(color: Colors.white38), labelText: 'Concepto A', labelStyle: const TextStyle(color: Color(0xFF7C6AF7)), filled: true, fillColor: const Color(0xFF1E1E2A), border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none))),
+        const SizedBox(height: 10),
+        TextField(controller: _concepto2Controller, style: const TextStyle(color: Colors.white), decoration: InputDecoration(hintText: 'Ej: Meiosis', hintStyle: const TextStyle(color: Colors.white38), labelText: 'Concepto B', labelStyle: const TextStyle(color: Color(0xFF7C6AF7)), filled: true, fillColor: const Color(0xFF1E1E2A), border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none))),
+        const SizedBox(height: 14),
+        SizedBox(width: double.infinity, child: ElevatedButton.icon(onPressed: _cargandoComparador ? null : _compararConceptos, icon: const Icon(Icons.compare_arrows, color: Colors.white, size: 18), label: _cargandoComparador ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2)) : const Text('Comparar', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)), style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF7C6AF7), padding: const EdgeInsets.symmetric(vertical: 14), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))))),
+        if (_resultadoComparador.isNotEmpty) ...[
+          const SizedBox(height: 14),
+          Container(padding: const EdgeInsets.all(14), decoration: BoxDecoration(color: const Color(0xFF1E1E2A), borderRadius: BorderRadius.circular(12), border: Border.all(color: const Color(0xFF5DE0C5).withOpacity(0.3))), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            const Row(children: [Icon(Icons.auto_awesome, color: Color(0xFF5DE0C5), size: 14), SizedBox(width: 6), Text('Comparación', style: TextStyle(color: Color(0xFF5DE0C5), fontWeight: FontWeight.bold, fontSize: 13))]),
+            const SizedBox(height: 10),
+            Text(_resultadoComparador.replaceAll('**', '').replaceAll('###', '').replaceAll('##', '').replaceAll('#', ''), style: const TextStyle(color: Colors.white, fontSize: 13, height: 1.6)),
+          ])),
+        ],
+      ]),
+    );
+  }
+
+  Widget _buildNemotecnia() {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(16),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Container(padding: const EdgeInsets.all(12), decoration: BoxDecoration(color: const Color(0xFF1E1E2A), borderRadius: BorderRadius.circular(12)), child: const Row(children: [Icon(Icons.lightbulb_outline, color: Color(0xFFF7A26A), size: 20), SizedBox(width: 8), Expanded(child: Text('Escribe lo que necesitas memorizar y la IA generará nemotecnias, analogías e imágenes mentales.', style: TextStyle(color: Colors.white54, fontSize: 12)))])),
+        const SizedBox(height: 14),
+        TextField(controller: _nemotecniaController, style: const TextStyle(color: Colors.white), maxLines: 3, minLines: 1, decoration: InputDecoration(hintText: 'Ej: Los planetas del sistema solar en orden, Las fases de la mitosis...', hintStyle: const TextStyle(color: Colors.white38), labelText: 'Concepto o lista a memorizar', labelStyle: const TextStyle(color: Color(0xFFF7A26A)), filled: true, fillColor: const Color(0xFF1E1E2A), border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none), alignLabelWithHint: true)),
+        const SizedBox(height: 14),
+        SizedBox(width: double.infinity, child: ElevatedButton.icon(onPressed: _cargandoNemotecnia ? null : _generarNemotecnia, icon: const Icon(Icons.lightbulb, color: Colors.white, size: 18), label: _cargandoNemotecnia ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2)) : const Text('Generar nemotecnia', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)), style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFF7A26A), padding: const EdgeInsets.symmetric(vertical: 14), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))))),
+        if (_resultadoNemotecnia.isNotEmpty) ...[
+          const SizedBox(height: 14),
+          Container(padding: const EdgeInsets.all(14), decoration: BoxDecoration(color: const Color(0xFF1E1E2A), borderRadius: BorderRadius.circular(12), border: Border.all(color: const Color(0xFFF7A26A).withOpacity(0.3))), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            const Row(children: [Icon(Icons.lightbulb, color: Color(0xFFF7A26A), size: 14), SizedBox(width: 6), Text('Tus nemotecnias', style: TextStyle(color: Color(0xFFF7A26A), fontWeight: FontWeight.bold, fontSize: 13))]),
+            const SizedBox(height: 10),
+            Text(_resultadoNemotecnia.replaceAll('**', '').replaceAll('###', '').replaceAll('##', '').replaceAll('#', ''), style: const TextStyle(color: Colors.white, fontSize: 13, height: 1.6)),
+          ])),
+        ],
+      ]),
+    );
+  }
+
+  Widget _buildCorrector() {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(16),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Container(padding: const EdgeInsets.all(12), decoration: BoxDecoration(color: const Color(0xFF1E1E2A), borderRadius: BorderRadius.circular(12)), child: const Row(children: [Icon(Icons.spellcheck, color: Color(0xFF5DE0C5), size: 20), SizedBox(width: 8), Expanded(child: Text('Pega tu texto académico y la IA lo corregirá, mejorará el estilo y te dará una puntuación.', style: TextStyle(color: Colors.white54, fontSize: 12)))])),
+        const SizedBox(height: 14),
+        TextField(controller: _correctorController, style: const TextStyle(color: Colors.white, fontSize: 13), maxLines: 8, minLines: 4, decoration: InputDecoration(hintText: 'Pega aquí tu párrafo, introducción o texto académico...', hintStyle: const TextStyle(color: Colors.white38, fontSize: 13), labelText: 'Texto a corregir', labelStyle: const TextStyle(color: Color(0xFF5DE0C5)), filled: true, fillColor: const Color(0xFF1E1E2A), border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none), alignLabelWithHint: true)),
+        const SizedBox(height: 14),
+        SizedBox(width: double.infinity, child: ElevatedButton.icon(onPressed: _cargandoCorrector ? null : _corregirRedaccion, icon: const Icon(Icons.auto_fix_high, color: Colors.white, size: 18), label: _cargandoCorrector ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2)) : const Text('Corregir y mejorar', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)), style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF5DE0C5), padding: const EdgeInsets.symmetric(vertical: 14), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))))),
+        if (_resultadoCorrector.isNotEmpty) ...[
+          const SizedBox(height: 14),
+          Container(padding: const EdgeInsets.all(14), decoration: BoxDecoration(color: const Color(0xFF1E1E2A), borderRadius: BorderRadius.circular(12), border: Border.all(color: const Color(0xFF5DE0C5).withOpacity(0.3))), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+              const Row(children: [Icon(Icons.auto_fix_high, color: Color(0xFF5DE0C5), size: 14), SizedBox(width: 6), Text('Corrección', style: TextStyle(color: Color(0xFF5DE0C5), fontWeight: FontWeight.bold, fontSize: 13))]),
+              GestureDetector(onTap: () async { await Share.share(_resultadoCorrector); }, child: Container(padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4), decoration: BoxDecoration(color: const Color(0xFF5DE0C5).withOpacity(0.15), borderRadius: BorderRadius.circular(8)), child: const Row(children: [Icon(Icons.share, size: 12, color: Color(0xFF5DE0C5)), SizedBox(width: 4), Text('Compartir', style: TextStyle(color: Color(0xFF5DE0C5), fontSize: 11))]))),
+            ]),
+            const SizedBox(height: 10),
+            Text(_resultadoCorrector.replaceAll('**', '').replaceAll('###', '').replaceAll('##', '').replaceAll('#', ''), style: const TextStyle(color: Colors.white, fontSize: 13, height: 1.6)),
+          ])),
+        ],
+      ]),
+    );
+  }
+
+  Widget _buildRutaAprendizaje() {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(16),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Container(
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            gradient: LinearGradient(colors: [const Color(0xFF5DE0C5).withOpacity(0.15), const Color(0xFF0F0F14)]),
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: const Color(0xFF5DE0C5).withOpacity(0.3)),
+          ),
+          child: const Row(children: [
+            Icon(Icons.route, color: Color(0xFF5DE0C5), size: 22),
+            SizedBox(width: 10),
+            Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text('Ruta de aprendizaje personalizada', style: TextStyle(color: Color(0xFF5DE0C5), fontWeight: FontWeight.bold, fontSize: 14)),
+              SizedBox(height: 4),
+              Text('La IA analiza tu historial de simulacros y genera un plan semanal a tu medida.', style: TextStyle(color: Colors.white54, fontSize: 12)),
+            ])),
+          ]),
+        ),
+        const SizedBox(height: 16),
+        TextField(
+          controller: _materiasRutaController,
+          style: const TextStyle(color: Colors.white),
+          maxLines: 3, minLines: 2,
+          decoration: InputDecoration(
+            hintText: 'Ej: Cálculo II, Física, Programación en Python...',
+            hintStyle: const TextStyle(color: Colors.white38),
+            labelText: 'Materias / temas de esta semana',
+            labelStyle: const TextStyle(color: Color(0xFF5DE0C5)),
+            filled: true, fillColor: const Color(0xFF1E1E2A),
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+            alignLabelWithHint: true,
+          ),
+        ),
+        const SizedBox(height: 10),
+        TextField(
+          controller: _horasRutaController,
+          style: const TextStyle(color: Colors.white),
+          keyboardType: TextInputType.number,
+          decoration: InputDecoration(
+            hintText: 'Ej: 12',
+            hintStyle: const TextStyle(color: Colors.white38),
+            labelText: 'Horas disponibles esta semana',
+            labelStyle: const TextStyle(color: Color(0xFF5DE0C5)),
+            filled: true, fillColor: const Color(0xFF1E1E2A),
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+          ),
+        ),
+        const SizedBox(height: 14),
+        SizedBox(
+          width: double.infinity,
+          child: ElevatedButton.icon(
+            onPressed: _cargandoRuta ? null : _generarRutaAprendizaje,
+            icon: _cargandoRuta
+                ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                : const Icon(Icons.auto_awesome, color: Colors.white, size: 18),
+            label: Text(_cargandoRuta ? 'Generando tu plan...' : 'Generar mi ruta de estudio', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF5DE0C5),
+              padding: const EdgeInsets.symmetric(vertical: 14),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            ),
+          ),
+        ),
+        if (_resultadoRuta.isNotEmpty) ...[
+          const SizedBox(height: 14),
+          Container(
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: const Color(0xFF1E1E2A),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: const Color(0xFF5DE0C5).withOpacity(0.35)),
+            ),
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+                const Row(children: [Icon(Icons.calendar_today, color: Color(0xFF5DE0C5), size: 14), SizedBox(width: 6), Text('Tu plan semanal', style: TextStyle(color: Color(0xFF5DE0C5), fontWeight: FontWeight.bold, fontSize: 13))]),
+                GestureDetector(
+                  onTap: () async => Share.share(_resultadoRuta),
+                  child: Container(padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4), decoration: BoxDecoration(color: const Color(0xFF5DE0C5).withOpacity(0.15), borderRadius: BorderRadius.circular(8)), child: const Row(children: [Icon(Icons.share, size: 12, color: Color(0xFF5DE0C5)), SizedBox(width: 4), Text('Compartir', style: TextStyle(color: Color(0xFF5DE0C5), fontSize: 11))])),
+                ),
+              ]),
+              const SizedBox(height: 10),
+              Text(_resultadoRuta.replaceAll('**', '').replaceAll('###', '').replaceAll('##', '').replaceAll('#', ''), style: const TextStyle(color: Colors.white, fontSize: 13, height: 1.65)),
+            ]),
+          ),
+        ],
+      ]),
+    );
+  }
+
+  Widget _buildChatHerramientas() {
+    final esFeynman = _subModoHerramientas == 3;
+    final color = esFeynman ? const Color(0xFF7C6AF7) : const Color(0xFFF7584A);
+    final titulo = esFeynman ? 'Técnica Feynman' : 'Tutor Socrático';
+    final descripcion = esFeynman
+        ? 'Explícale el tema a la IA. Ella identificará tus vacíos con preguntas guía.'
+        : 'La IA nunca te dará la respuesta directa. Te hará preguntas para que llegues solo.';
+    final hint = esFeynman ? 'Empieza a explicar el tema...' : 'Escribe tu respuesta o pregunta...';
+
+    if (!_chatHerramientasIniciado) {
+      return SingleChildScrollView(
+        padding: const EdgeInsets.all(16),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Container(padding: const EdgeInsets.all(14), decoration: BoxDecoration(gradient: LinearGradient(colors: [color.withOpacity(0.18), const Color(0xFF0F0F14)]), borderRadius: BorderRadius.circular(14)), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Row(children: [Icon(esFeynman ? Icons.psychology : Icons.question_answer, color: color, size: 22), const SizedBox(width: 8), Text(titulo, style: TextStyle(color: color, fontWeight: FontWeight.bold, fontSize: 16))]),
+            const SizedBox(height: 8),
+            Text(descripcion, style: const TextStyle(color: Colors.white70, fontSize: 13)),
+          ])),
+          const SizedBox(height: 16),
+          TextField(controller: _temaHerramientasController, style: const TextStyle(color: Colors.white), decoration: InputDecoration(hintText: 'Ej: Termodinámica, Cálculo diferencial...', hintStyle: const TextStyle(color: Colors.white38), labelText: 'Tema que quieres trabajar', labelStyle: TextStyle(color: color), filled: true, fillColor: const Color(0xFF1E1E2A), border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none))),
+          const SizedBox(height: 14),
+          SizedBox(width: double.infinity, child: ElevatedButton.icon(onPressed: _iniciarChatHerramientas, icon: Icon(esFeynman ? Icons.psychology : Icons.play_arrow, color: Colors.white, size: 18), label: Text('Iniciar ${esFeynman ? 'sesión Feynman' : 'sesión Socrática'}', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)), style: ElevatedButton.styleFrom(backgroundColor: color, padding: const EdgeInsets.symmetric(vertical: 14), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))))),
+        ]),
+      );
+    }
+
+    return Column(children: [
+      Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        color: const Color(0xFF1E1E2A),
+        child: Row(children: [
+          Icon(esFeynman ? Icons.psychology : Icons.question_answer, color: color, size: 14),
+          const SizedBox(width: 6),
+          Text('$titulo — ${_temaHerramientasController.text}', style: TextStyle(color: color, fontSize: 12, fontWeight: FontWeight.w600)),
+          const Spacer(),
+          GestureDetector(onTap: () => setState(() { _chatHerramientas = []; _chatHerramientasIniciado = false; _temaHerramientasController.clear(); }), child: const Icon(Icons.refresh, color: Colors.white38, size: 18)),
+        ]),
+      ),
+      Expanded(
+        child: ListView.builder(
+          controller: _chatHerramientasScroll,
+          padding: const EdgeInsets.all(12),
+          itemCount: _chatHerramientas.length + (_cargandoChatHerramientas ? 1 : 0),
+          itemBuilder: (context, i) {
+            if (i == _chatHerramientas.length) {
+              return const Padding(padding: EdgeInsets.only(left: 8, bottom: 6), child: Row(children: [SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFF7C6AF7))), SizedBox(width: 8), Text('Analizando...', style: TextStyle(color: Colors.white38, fontSize: 12))]));
+            }
+            final msg = _chatHerramientas[i];
+            final esUsuario = msg['role'] == 'user';
+            return Align(
+              alignment: esUsuario ? Alignment.centerRight : Alignment.centerLeft,
+              child: Container(
+                margin: const EdgeInsets.only(bottom: 8),
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.8),
+                decoration: BoxDecoration(color: esUsuario ? color : const Color(0xFF1E1E2A), borderRadius: BorderRadius.circular(14)),
+                child: Text(msg['text'] ?? '', style: TextStyle(color: esUsuario ? Colors.white : Colors.white70, fontSize: 13, height: 1.5)),
+              ),
+            );
+          },
+        ),
+      ),
+      Container(
+        padding: const EdgeInsets.fromLTRB(12, 8, 12, 12),
+        decoration: BoxDecoration(color: const Color(0xFF1E1E2A), border: Border(top: BorderSide(color: color.withOpacity(0.2)))),
+        child: Row(children: [
+          Expanded(child: TextField(controller: _chatHerramientasController, style: const TextStyle(color: Colors.white, fontSize: 13), decoration: InputDecoration(hintText: hint, hintStyle: const TextStyle(color: Colors.white38, fontSize: 13), contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10), filled: true, fillColor: const Color(0xFF0F0F14), border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide.none)), onSubmitted: (_) => _enviarMensajeChatHerramientas())),
+          const SizedBox(width: 8),
+          GestureDetector(onTap: _enviarMensajeChatHerramientas, child: Container(padding: const EdgeInsets.all(10), decoration: BoxDecoration(color: color, borderRadius: BorderRadius.circular(10)), child: const Icon(Icons.send, color: Colors.white, size: 18))),
+        ]),
+      ),
+    ]);
   }
 
   Widget _buildSimulacro() {
@@ -812,7 +2196,168 @@ class _IAPageState extends State<IAPage> {
       const SizedBox(height: 12),
       ..._preguntasSimulacro.asMap().entries.map((entry) { final i = entry.key; final p = entry.value; final correcta = p['correcta']?.toString().trim().toUpperCase() ?? ''; final respuesta = _respuestasUsuario[i]?.trim().toUpperCase() ?? ''; final esCorrecta = respuesta.startsWith(correcta); final opciones = List<String>.from(p['opciones'] ?? []); final opcionCorrecta = opciones.firstWhere((o) => o.toUpperCase().startsWith(correcta), orElse: () => ''); return Container(margin: const EdgeInsets.only(bottom: 12), padding: const EdgeInsets.all(14), decoration: BoxDecoration(color: const Color(0xFF1E1E2A), borderRadius: BorderRadius.circular(12), border: Border.all(color: esCorrecta ? const Color(0xFF5DE0C5).withOpacity(0.4) : const Color(0xFFF7584A).withOpacity(0.4))), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Row(children: [Icon(esCorrecta ? Icons.check_circle : Icons.cancel, color: esCorrecta ? const Color(0xFF5DE0C5) : const Color(0xFFF7584A), size: 18), const SizedBox(width: 8), Expanded(child: Text('${i + 1}. ${p['pregunta']}', style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w600)))]), const SizedBox(height: 8), if (!esCorrecta) ...[Text('Tu respuesta: ${_respuestasUsuario[i] ?? 'Sin respuesta'}', style: const TextStyle(color: Color(0xFFF7584A), fontSize: 12)), Text('Correcta: $opcionCorrecta', style: const TextStyle(color: Color(0xFF5DE0C5), fontSize: 12))] else Text('✓ ${_respuestasUsuario[i]}', style: const TextStyle(color: Color(0xFF5DE0C5), fontSize: 12)), if (p['explicacion'] != null) ...[const SizedBox(height: 6), Text('💡 ${p['explicacion']}', style: const TextStyle(color: Colors.white38, fontSize: 11, fontStyle: FontStyle.italic))]])); }),
       const SizedBox(height: 16),
-      SizedBox(width: double.infinity, child: ElevatedButton.icon(onPressed: () => setState(() { _preguntasSimulacro = []; _respuestasUsuario = []; _simulacroTerminado = false; _preguntaActual = 0; }), icon: const Icon(Icons.refresh, color: Colors.white), label: const Text('Nuevo simulacro', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)), style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF7C6AF7), padding: const EdgeInsets.symmetric(vertical: 14), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))))),
+      SizedBox(width: double.infinity, child: ElevatedButton.icon(onPressed: () => setState(() { _preguntasSimulacro = []; _respuestasUsuario = []; _simulacroTerminado = false; _preguntaActual = 0; _analisisDebilidades = ''; }), icon: const Icon(Icons.refresh, color: Colors.white), label: const Text('Nuevo simulacro', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)), style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF7C6AF7), padding: const EdgeInsets.symmetric(vertical: 14), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))))),
+      const SizedBox(height: 8),
+      if (_analisisDebilidades.isEmpty)
+        SizedBox(
+          width: double.infinity,
+          child: OutlinedButton.icon(
+            onPressed: _analizandoDebilidades ? null : _analizarDebilidades,
+            icon: _analizandoDebilidades
+                ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFFF7A26A)))
+                : const Icon(Icons.psychology, color: Color(0xFFF7A26A), size: 18),
+            label: Text(_analizandoDebilidades ? 'Analizando...' : 'Analizar mis puntos débiles con IA', style: const TextStyle(color: Color(0xFFF7A26A), fontWeight: FontWeight.w600)),
+            style: OutlinedButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 14), side: const BorderSide(color: Color(0xFFF7A26A)), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
+          ),
+        ),
+      if (_analisisDebilidades.isNotEmpty) ...[
+        Container(
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(color: const Color(0xFF1E1E2A), borderRadius: BorderRadius.circular(12), border: Border.all(color: const Color(0xFFF7A26A).withOpacity(0.4))),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            const Row(children: [Icon(Icons.psychology, color: Color(0xFFF7A26A), size: 16), SizedBox(width: 8), Text('Análisis de debilidades', style: TextStyle(color: Color(0xFFF7A26A), fontWeight: FontWeight.bold, fontSize: 13))]),
+            const SizedBox(height: 10),
+            Text(_analisisDebilidades.replaceAll('**', '').replaceAll('###', '').replaceAll('##', '').replaceAll('#', ''), style: const TextStyle(color: Colors.white, fontSize: 13, height: 1.6)),
+          ]),
+        ),
+      ],
     ]));
   }
+
+  Widget _buildTemasPopulares() {
+    const temas = ['Cálculo I', 'Python', 'Álgebra', 'Historia', 'Biología', 'Química', 'Física', 'Estadística', 'Economía', 'Derecho'];
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      const Text('TEMAS POPULARES', style: TextStyle(color: Colors.white38, fontSize: 10, fontWeight: FontWeight.w700, letterSpacing: 1)),
+      const SizedBox(height: 8),
+      SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: Row(
+          children: temas.map((t) => _TapScale(
+            onTap: () => setState(() => _temaController.text = t),
+            child: Container(
+              margin: const EdgeInsets.only(right: 8),
+              padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 7),
+              decoration: BoxDecoration(
+                color: const Color(0xFF1E1E2A),
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(color: const Color(0xFF7C6AF7).withOpacity(0.4)),
+              ),
+              child: Text(t, style: const TextStyle(color: Color(0xFF7C6AF7), fontSize: 12)),
+            ),
+          )).toList(),
+        ),
+      ),
+    ]);
+  }
+
+  Widget _buildMapaVisual() {
+    if (_mapaConceptual.isEmpty) {
+      return const Center(child: Text('Sin mapa conceptual', style: TextStyle(color: Colors.white38)));
+    }
+    final root = _mapaConceptual.first;
+    final children = _mapaConceptual.skip(1).toList();
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(16),
+      child: Column(children: [
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
+          decoration: BoxDecoration(
+            gradient: const LinearGradient(colors: [Color(0xFF7C6AF7), Color(0xFF5A4ED4)]),
+            borderRadius: BorderRadius.circular(14),
+            boxShadow: [BoxShadow(color: const Color(0xFF7C6AF7).withOpacity(0.35), blurRadius: 12, offset: const Offset(0, 4))],
+          ),
+          child: Text(root, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16), textAlign: TextAlign.center),
+        ),
+        if (children.isNotEmpty) ...[
+          Center(child: Container(width: 2, height: 20, color: const Color(0xFF7C6AF7))),
+          SizedBox(
+            height: 20,
+            width: double.infinity,
+            child: CustomPaint(painter: _MapaBranchPainter(children.length)),
+          ),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: children.map((child) => Expanded(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 4),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 8),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF1A1A40),
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: const Color(0xFF7C6AF7).withOpacity(0.55)),
+                  ),
+                  child: Text(child, style: const TextStyle(color: Color(0xFF7C6AF7), fontSize: 12, fontWeight: FontWeight.w600), textAlign: TextAlign.center),
+                ),
+              ),
+            )).toList(),
+          ),
+          const SizedBox(height: 20),
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(color: const Color(0xFF1E1E2A), borderRadius: BorderRadius.circular(10)),
+            child: const Row(children: [
+              Icon(Icons.info_outline, color: Colors.white38, size: 13),
+              SizedBox(width: 6),
+              Text('Concepto principal y sus ramas clave', style: TextStyle(color: Colors.white38, fontSize: 11)),
+            ]),
+          ),
+        ],
+      ]),
+    );
+  }
+}
+
+class _TapScale extends StatefulWidget {
+  final Widget child;
+  final VoidCallback onTap;
+  const _TapScale({required this.child, required this.onTap});
+
+  @override
+  State<_TapScale> createState() => _TapScaleState();
+}
+
+class _TapScaleState extends State<_TapScale> {
+  bool _pressed = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTapDown: (_) => setState(() => _pressed = true),
+      onTapUp: (_) { setState(() => _pressed = false); widget.onTap(); },
+      onTapCancel: () => setState(() => _pressed = false),
+      child: AnimatedScale(
+        scale: _pressed ? 0.94 : 1.0,
+        duration: const Duration(milliseconds: 100),
+        curve: Curves.easeOut,
+        child: widget.child,
+      ),
+    );
+  }
+}
+
+class _MapaBranchPainter extends CustomPainter {
+  final int count;
+  const _MapaBranchPainter(this.count);
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (count == 0) return;
+    final paint = Paint()
+      ..color = const Color(0xFF7C6AF7)
+      ..strokeWidth = 2
+      ..style = PaintingStyle.stroke;
+    final childW = size.width / count;
+    final centers = List.generate(count, (i) => childW * i + childW / 2);
+    if (centers.length > 1) {
+      canvas.drawLine(Offset(centers.first, 0), Offset(centers.last, 0), paint);
+    }
+    for (final cx in centers) {
+      canvas.drawLine(Offset(cx, 0), Offset(cx, size.height), paint);
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }

@@ -6,6 +6,9 @@ import 'racha_heatmap_page.dart';
 import 'perfiles_academicos_page.dart';
 import 'tema_service.dart';
 import 'app_colors.dart';
+import 'services/carrera_service.dart';
+import 'services/premium_service.dart';
+import 'premium_page.dart';
 
 class PerfilPage extends StatefulWidget {
   const PerfilPage({super.key});
@@ -20,6 +23,8 @@ class _PerfilPageState extends State<PerfilPage> {
   final _carreraController = TextEditingController();
   final _universidadController = TextEditingController();
   bool _editando = false;
+  bool _isPremium = false;
+  DateTime? _premiumExpiry;
 
   @override
   void initState() {
@@ -43,6 +48,9 @@ class _PerfilPageState extends State<PerfilPage> {
         _universidadController.text = data['universidad'] ?? '';
       });
     }
+    final premium = await PremiumService.isPremium();
+    final expiry = await PremiumService.expiry();
+    if (mounted) setState(() { _isPremium = premium; _premiumExpiry = expiry; });
   }
 
   void _guardarPerfil() async {
@@ -228,10 +236,12 @@ class _PerfilPageState extends State<PerfilPage> {
             _buildToggleTema(),
             const SizedBox(height: 16),
 
-            _buildCampo('Carrera', _carreraController, Icons.school),
+            _buildCarreraSelector(),
             const SizedBox(height: 12),
             _buildCampo('Universidad', _universidadController, Icons.account_balance),
-            const SizedBox(height: 24),
+            const SizedBox(height: 16),
+            _buildPremiumBanner(),
+            const SizedBox(height: 12),
 
             // Estadísticas
             Align(
@@ -481,6 +491,196 @@ class _PerfilPageState extends State<PerfilPage> {
                   ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildCarreraSelector() {
+    final carreraActual = _carreraController.text;
+    return GestureDetector(
+      onTap: () async {
+        final seleccionada = await showModalBottomSheet<String>(
+          context: context,
+          backgroundColor: const Color(0xFF1E1E2A),
+          isScrollControlled: true,
+          shape: const RoundedRectangleBorder(
+              borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+          builder: (ctx) => DraggableScrollableSheet(
+            initialChildSize: 0.7,
+            maxChildSize: 0.9,
+            minChildSize: 0.4,
+            expand: false,
+            builder: (ctx, scroll) => Column(
+              children: [
+                const SizedBox(height: 12),
+                Container(
+                    width: 40,
+                    height: 4,
+                    decoration: BoxDecoration(
+                        color: Colors.white24,
+                        borderRadius: BorderRadius.circular(2))),
+                const SizedBox(height: 16),
+                const Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 20),
+                  child: Text('Selecciona tu carrera',
+                      style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 17,
+                          fontWeight: FontWeight.bold)),
+                ),
+                const SizedBox(height: 12),
+                Expanded(
+                  child: ListView.builder(
+                    controller: scroll,
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    itemCount: CarreraService.lista.length,
+                    itemBuilder: (ctx, i) {
+                      final c = CarreraService.lista[i];
+                      final sel = c == carreraActual;
+                      return GestureDetector(
+                        onTap: () => Navigator.pop(ctx, c),
+                        child: Container(
+                          margin: const EdgeInsets.only(bottom: 6),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 16, vertical: 12),
+                          decoration: BoxDecoration(
+                            color: sel
+                                ? const Color(0xFF7C6AF7).withValues(alpha: 0.2)
+                                : const Color(0xFF0F0F14),
+                            borderRadius: BorderRadius.circular(10),
+                            border: Border.all(
+                                color: sel
+                                    ? const Color(0xFF7C6AF7)
+                                    : Colors.white12,
+                                width: sel ? 1.5 : 1),
+                          ),
+                          child: Row(children: [
+                            Expanded(
+                              child: Text(c,
+                                  style: TextStyle(
+                                      color: sel
+                                          ? const Color(0xFF7C6AF7)
+                                          : Colors.white70,
+                                      fontWeight: sel
+                                          ? FontWeight.bold
+                                          : FontWeight.normal,
+                                      fontSize: 14)),
+                            ),
+                            if (sel)
+                              const Icon(Icons.check_circle,
+                                  color: Color(0xFF7C6AF7), size: 18),
+                          ]),
+                        ),
+                      );
+                    },
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+        if (seleccionada != null) {
+          setState(() => _carreraController.text = seleccionada);
+          // Auto-save carrera immediately so AI context updates at once
+          await _db.collection('perfiles').doc(user!.uid).set(
+              {'carrera': seleccionada}, SetOptions(merge: true));
+        }
+      },
+      child: Container(
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: context.bgCard,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: context.borderPrimary),
+        ),
+        child: Row(
+          children: [
+            Icon(Icons.school, color: AppC.purple, size: 20),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('Carrera',
+                      style: TextStyle(
+                          color: context.textSecondary, fontSize: 11)),
+                  const SizedBox(height: 2),
+                  Text(
+                    carreraActual.isEmpty ? 'Toca para seleccionar' : carreraActual,
+                    style: TextStyle(
+                        color: carreraActual.isEmpty
+                            ? context.textTertiary
+                            : context.textPrimary,
+                        fontSize: 14,
+                        fontStyle: carreraActual.isEmpty
+                            ? FontStyle.italic
+                            : FontStyle.normal),
+                  ),
+                ],
+              ),
+            ),
+            Icon(Icons.keyboard_arrow_down,
+                color: AppC.purple, size: 20),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPremiumBanner() {
+    return GestureDetector(
+      onTap: () => Navigator.push(
+          context, MaterialPageRoute(builder: (_) => const PremiumPage())),
+      child: Container(
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          gradient: _isPremium
+              ? const LinearGradient(
+                  colors: [Color(0xFF2A2050), Color(0xFF1A3030)])
+              : LinearGradient(
+                  colors: [
+                    const Color(0xFF7C6AF7).withValues(alpha: 0.08),
+                    const Color(0xFF4A90E2).withValues(alpha: 0.08),
+                  ],
+                ),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: _isPremium
+                ? const Color(0xFFFFD700).withValues(alpha: 0.5)
+                : const Color(0xFF7C6AF7).withValues(alpha: 0.3),
+          ),
+        ),
+        child: Row(
+          children: [
+            Text(_isPremium ? '⭐' : '🔒',
+                style: const TextStyle(fontSize: 22)),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    _isPremium ? 'EstudiApp Premium activo' : 'Desbloquear Premium',
+                    style: TextStyle(
+                        color: _isPremium
+                            ? const Color(0xFFFFD700)
+                            : const Color(0xFF7C6AF7),
+                        fontWeight: FontWeight.bold,
+                        fontSize: 14),
+                  ),
+                  Text(
+                    _isPremium && _premiumExpiry != null
+                        ? 'Válido hasta ${_premiumExpiry!.day}/${_premiumExpiry!.month}/${_premiumExpiry!.year}'
+                        : 'PDF simulacros, grupos de estudio y más',
+                    style: const TextStyle(
+                        color: Colors.white54, fontSize: 11),
+                  ),
+                ],
+              ),
+            ),
+            const Icon(Icons.chevron_right, color: Colors.white38, size: 18),
+          ],
+        ),
       ),
     );
   }

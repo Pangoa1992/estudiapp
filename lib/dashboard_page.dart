@@ -64,7 +64,6 @@ class _DashboardPageState extends State<DashboardPage> {
             final perfilData = perfilSnapshot.data?.data() as Map<String, dynamic>?;
             final racha = perfilData?['racha'] ?? 0;
             final rachaMaxima = perfilData?['rachaMaxima'] ?? 0;
-            final ultimaVisita = perfilData?['ultimaVisita'];
 
             return StreamBuilder<QuerySnapshot>(
               stream: _db.collection('habitos').where('userId', isEqualTo: user!.uid).snapshots(),

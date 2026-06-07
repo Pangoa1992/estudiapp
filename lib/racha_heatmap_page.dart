@@ -40,7 +40,7 @@ class _RachaHeatmapPageState extends State<RachaHeatmapPage> {
 
     final snap = await _db
         .collection('historial_habitos')
-        .where('userId', isEqualTo: _user!.uid)
+        .where('userId', isEqualTo: _user.uid)
         .where('mes', isGreaterThanOrEqualTo: cutoffMes)
         .get();
 
@@ -64,7 +64,7 @@ class _RachaHeatmapPageState extends State<RachaHeatmapPage> {
 
     // La racha máxima histórica ya está almacenada en Firestore y se
     // actualiza en tiempo real por RachaService. Confiamos en ese valor.
-    final perfil = await _db.collection('perfiles').doc(_user!.uid).get();
+    final perfil = await _db.collection('perfiles').doc(_user.uid).get();
     final int rachaMaximaFirestore = perfil.data()?['rachaMaxima'] ?? 0;
 
     setState(() {

@@ -1,0 +1,130 @@
+{
+  "indexes": [
+    {
+      "collectionGroup": "examenes",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "userId", "order": "ASCENDING" },
+        { "fieldPath": "completado", "order": "ASCENDING" },
+        { "fieldPath": "fecha", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "examenes_docentes",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "creadorId", "order": "ASCENDING" },
+        { "fieldPath": "creadoEn", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "pdf_simulacros",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "creadorId", "order": "ASCENDING" },
+        { "fieldPath": "creadoEn", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "sesiones_examen",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "estudianteId", "order": "ASCENDING" },
+        { "fieldPath": "completado", "order": "ASCENDING" },
+        { "fieldPath": "finalizadoEn", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "admision_sesiones",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "userId", "order": "ASCENDING" },
+        { "fieldPath": "creadoEn", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "feynman_sesiones",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "userId", "order": "ASCENDING" },
+        { "fieldPath": "creadoEn", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "casos_reales_sesiones",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "userId", "order": "ASCENDING" },
+        { "fieldPath": "creadoEn", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "bienestar",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "userId", "order": "ASCENDING" },
+        { "fieldPath": "fecha", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "bienestar",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "userId", "order": "ASCENDING" },
+        { "fieldPath": "fecha", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "flashcards_srs",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "userId", "order": "ASCENDING" },
+        { "fieldPath": "proximaRevision", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "flashcards_srs",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "userId", "order": "ASCENDING" },
+        { "fieldPath": "cursoId", "order": "ASCENDING" },
+        { "fieldPath": "proximaRevision", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "calificaciones",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "userId", "order": "ASCENDING" },
+        { "fieldPath": "fecha", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "calificaciones",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "userId", "order": "ASCENDING" },
+        { "fieldPath": "cursoId", "order": "ASCENDING" },
+        { "fieldPath": "fecha", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "admision_sesiones",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "userId", "order": "ASCENDING" },
+        { "fieldPath": "fechaFin", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "sesiones_examen",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "examenId", "order": "ASCENDING" },
+        { "fieldPath": "completado", "order": "ASCENDING" },
+        { "fieldPath": "puntuacion", "order": "DESCENDING" }
+      ]
+    }
+  ],
+  "fieldOverrides": []
+}

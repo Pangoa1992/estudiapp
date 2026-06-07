@@ -1048,7 +1048,7 @@ class _HomePageState extends State<HomePage> {
                 decoration: BoxDecoration(
                   color: const Color(0xFF1E1E2A),
                   borderRadius: BorderRadius.circular(14),
-                  border: Border.all(color: item.color.withOpacity(0.3)),
+                  border: Border.all(color: const Color(0xFF7C6AF7).withOpacity(0.3)),
                 ),
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
