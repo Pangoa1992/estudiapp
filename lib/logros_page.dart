@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'services/compartir_service.dart';
 
 class LogrosPage extends StatefulWidget {
   const LogrosPage({super.key});
@@ -263,9 +264,34 @@ class _LogrosPageState extends State<LogrosPage> {
             ),
           ),
           if (obtenido)
-            Icon(Icons.check_circle, color: logro['color'] as Color, size: 20)
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.check_circle,
+                    color: logro['color'] as Color, size: 20),
+                const SizedBox(width: 8),
+                GestureDetector(
+                  onTap: () => CompartirService.mostrar(
+                    context: context,
+                    tarjeta: CompartirService.tarjetaLogro(
+                      emoji: logro['emoji'] as String,
+                      titulo: logro['titulo'] as String,
+                      descripcion: logro['descripcion'] as String,
+                      color: logro['color'] as Color,
+                      nombreUsuario:
+                          user?.displayName ?? 'Estudiante',
+                    ),
+                    texto:
+                        '${logro['emoji']} ¡Desbloqueé "${logro['titulo']}" en EstudiApp! 📚',
+                  ),
+                  child: const Icon(Icons.share,
+                      color: Colors.white38, size: 18),
+                ),
+              ],
+            )
           else
-            const Icon(Icons.lock_outline, color: Colors.white24, size: 20),
+            const Icon(Icons.lock_outline,
+                color: Colors.white24, size: 20),
         ],
       ),
     );

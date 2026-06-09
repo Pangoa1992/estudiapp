@@ -6,7 +6,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:http/http.dart' as http;
-import 'package:share_plus/share_plus.dart';
+import 'services/compartir_service.dart';
 import 'services/premium_service.dart';
 import 'premium_page.dart';
 
@@ -313,6 +313,15 @@ class _PdfSimulacroPageState extends State<PdfSimulacroPage> {
         {'simulacrosCompletados': FieldValue.increment(1)},
         SetOptions(merge: true),
       );
+      // Actualizar ranking semanal
+      final semana = _semanaActual();
+      _db.collection('ranking_semanal').doc('${semana}_$uid').set({
+        'semana': semana,
+        'userId': uid,
+        'userName': _user?.displayName ?? 'Estudiante',
+        'simulacros': FieldValue.increment(1),
+        'actualizadoEn': Timestamp.now(),
+      }, SetOptions(merge: true));
     }
 
     if (mounted) setState(() => _fase = _PdfFase.resultado);
@@ -322,6 +331,12 @@ class _PdfSimulacroPageState extends State<PdfSimulacroPage> {
     const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
     final rng = Random();
     return List.generate(6, (_) => chars[rng.nextInt(chars.length)]).join();
+  }
+
+  String _semanaActual() {
+    final hoy = DateTime.now();
+    final lunes = hoy.subtract(Duration(days: hoy.weekday - 1));
+    return '${lunes.year}-${lunes.month.toString().padLeft(2, '0')}-${lunes.day.toString().padLeft(2, '0')}';
   }
 
   // ── Build ──────────────────────────────────────────────────────────────────
@@ -841,31 +856,41 @@ class _PdfSimulacroPageState extends State<PdfSimulacroPage> {
           }),
           const SizedBox(height: 16),
           // ── Botón compartir resultado ──────────────────────────────────
-          Builder(builder: (context) {
-            final total = _preguntas.length;
-            final pct = total > 0 ? (_correctas / total * 100).round() : 0;
-            final texto =
-                '🎯 ¡Obtuve $_correctas/$total ($pct%) en "$_titulo"!\n'
-                '📚 Estudiando con EstudiApp — organiza hábitos, exámenes y estudia con IA.';
-            return SizedBox(
-              width: double.infinity,
-              child: OutlinedButton.icon(
-                onPressed: () => Share.share(texto),
-                icon: const Icon(Icons.share, color: Color(0xFF5DE0C5)),
-                label: const Text(
-                  'Compartir resultado',
-                  style: TextStyle(
-                      color: Color(0xFF5DE0C5), fontWeight: FontWeight.bold),
-                ),
-                style: OutlinedButton.styleFrom(
-                  side: const BorderSide(color: Color(0xFF5DE0C5)),
-                  padding: const EdgeInsets.symmetric(vertical: 14),
-                  shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12)),
-                ),
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton.icon(
+              onPressed: () {
+                final t = _preguntas.length;
+                final p = t > 0 ? (_correctas / t * 100).round() : 0;
+                CompartirService.mostrar(
+                  context: context,
+                  tarjeta: CompartirService.tarjetaResultado(
+                    titulo: _titulo,
+                    correctas: _correctas,
+                    total: t,
+                    porcentaje: p,
+                    nombreUsuario:
+                        _user?.displayName ?? 'Estudiante',
+                  ),
+                  texto:
+                      '🎯 ¡Obtuve $_correctas/$t ($p%) en "$_titulo"!\n📚 @EstudiApp',
+                );
+              },
+              icon: const Icon(Icons.share, color: Color(0xFF5DE0C5)),
+              label: const Text(
+                'Compartir resultado',
+                style: TextStyle(
+                    color: Color(0xFF5DE0C5),
+                    fontWeight: FontWeight.bold),
               ),
-            );
-          }),
+              style: OutlinedButton.styleFrom(
+                side: const BorderSide(color: Color(0xFF5DE0C5)),
+                padding: const EdgeInsets.symmetric(vertical: 14),
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12)),
+              ),
+            ),
+          ),
           const SizedBox(height: 10),
           SizedBox(
             width: double.infinity,

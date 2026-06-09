@@ -148,6 +148,14 @@
         { "fieldPath": "userId", "order": "ASCENDING" },
         { "fieldPath": "fechaFin", "order": "ASCENDING" }
       ]
+    },
+    {
+      "collectionGroup": "ranking_semanal",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "semana", "order": "ASCENDING" },
+        { "fieldPath": "simulacros", "order": "DESCENDING" }
+      ]
     }
   ],
   "fieldOverrides": []

@@ -170,6 +170,14 @@ service cloud.firestore {
       allow create:      if esAutenticado() && request.resource.data.userId == request.auth.uid;
     }
 
+    // ── Ranking semanal ───────────────────────────────────────────────────────
+    // Todos pueden leer (ranking público); cada usuario solo escribe el suyo.
+    match /ranking_semanal/{docId} {
+      allow read:   if esAutenticado();
+      allow create: if esAutenticado() && request.resource.data.userId == request.auth.uid;
+      allow update: if esAutenticado() && resource.data.userId == request.auth.uid;
+    }
+
     // ── Historial de racha ────────────────────────────────────────────────────
     match /historial_racha/{docId} {
       allow read, write: if esAutenticado() && resource.data.userId == request.auth.uid;

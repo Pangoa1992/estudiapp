@@ -6,7 +6,6 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:google_mobile_ads/google_mobile_ads.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:share_plus/share_plus.dart';
 import 'dart:async';
 import 'dart:io';
 import 'package:android_intent_plus/android_intent.dart';
@@ -42,6 +41,8 @@ import 'premium_page.dart';
 import 'pdf_simulacro_page.dart';
 import 'grupo_estudio_page.dart';
 import 'estadisticas_page.dart';
+import 'ranking_page.dart';
+import 'services/compartir_service.dart';
 import 'services/fcm_service.dart';
 import 'bienvenida_dialog.dart';
 
@@ -568,13 +569,22 @@ class _HomePageState extends State<HomePage> {
                     ]),
                   ]),
                   GestureDetector(
-                    onTap: () => Share.share(
-                        '🔥 ¡Llevo $racha días de racha estudiando con EstudiApp!\n'
-                        '📚 Organiza tus hábitos, exámenes y estudia con IA.'),
+                    onTap: () {
+                      final rachaInt = (racha as num).toInt();
+                      CompartirService.mostrar(
+                        context: context,
+                        tarjeta: CompartirService.tarjetaRacha(
+                          racha: rachaInt,
+                          nombreUsuario: _nombreUsuario,
+                        ),
+                        texto:
+                            '🔥 ¡Llevo $racha días de racha estudiando! @EstudiApp',
+                      );
+                    },
                     child: Container(
                       padding: const EdgeInsets.all(8),
                       decoration: BoxDecoration(
-                        color: const Color(0xFF7C6AF7).withOpacity(0.25),
+                        color: const Color(0xFF7C6AF7).withValues(alpha: 0.25),
                         borderRadius: BorderRadius.circular(8),
                       ),
                       child: const Icon(Icons.share,
@@ -1018,6 +1028,8 @@ class _HomePageState extends State<HomePage> {
           () => Navigator.push(context, MaterialPageRoute(builder: (_) => const DashboardPage()))),
       _GrillaItem(Icons.bar_chart_rounded, const Color(0xFF7C6AF7), 'Estadísticas 📊',
           () => Navigator.push(context, MaterialPageRoute(builder: (_) => const EstadisticasPage()))),
+      _GrillaItem(Icons.leaderboard, const Color(0xFFFFD700), 'Ranking 🏆',
+          () => Navigator.push(context, MaterialPageRoute(builder: (_) => const RankingPage()))),
       _GrillaItem(Icons.notifications, const Color(0xFF5DE0C5), 'Notificaciones 🔔',
           () => Navigator.push(context, MaterialPageRoute(builder: (_) => const PantallaNotificaciones()))),
     ];
