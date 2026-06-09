@@ -57,6 +57,18 @@ class _PomodoroPageState extends State<PomodoroPage> {
     await prefs.setInt(_kSesionesKey, _sesionesCompletadas);
   }
 
+  void _guardarSesionFirestore() {
+    final u = FirebaseAuth.instance.currentUser;
+    if (u == null) return;
+    final ahora = DateTime.now();
+    FirebaseFirestore.instance.collection('sesiones_pomodoro').add({
+      'userId': u.uid,
+      'minutos': _tiempoEstudio ~/ 60,
+      'fechaStr': _fechaHoy(),
+      'fecha': Timestamp.fromDate(ahora),
+    });
+  }
+
   void _iniciarPausar() {
     if (_corriendo) {
       _timer?.cancel();
@@ -78,6 +90,7 @@ class _PomodoroPageState extends State<PomodoroPage> {
             if (!_esDescanso) {
               _sesionesCompletadas++;
               _guardarSesionesHoy();
+              _guardarSesionFirestore();
               // Primera sesión del día: garantiza que la racha se registre
               if (_sesionesCompletadas == 1) {
                 RachaService().verificarRacha();

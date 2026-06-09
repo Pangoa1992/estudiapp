@@ -164,6 +164,18 @@ service cloud.firestore {
       }
     }
 
+    // ── Sesiones Pomodoro ─────────────────────────────────────────────────────
+    match /sesiones_pomodoro/{docId} {
+      allow read, write: if esAutenticado() && resource.data.userId == request.auth.uid;
+      allow create:      if esAutenticado() && request.resource.data.userId == request.auth.uid;
+    }
+
+    // ── Historial de racha ────────────────────────────────────────────────────
+    match /historial_racha/{docId} {
+      allow read, write: if esAutenticado() && resource.data.userId == request.auth.uid;
+      allow create:      if esAutenticado() && request.resource.data.userId == request.auth.uid;
+    }
+
     // ── Tokens FCM ────────────────────────────────────────────────────────────
     // Solo el admin puede leer y escribir tokens FCM (el cliente solo escribe el
     // suyo propio; la Cloud Function usa Admin SDK y no está sujeta a estas reglas).

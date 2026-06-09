@@ -41,6 +41,7 @@ import 'academia_page.dart';
 import 'premium_page.dart';
 import 'pdf_simulacro_page.dart';
 import 'grupo_estudio_page.dart';
+import 'estadisticas_page.dart';
 import 'services/fcm_service.dart';
 import 'bienvenida_dialog.dart';
 
@@ -1015,6 +1016,8 @@ class _HomePageState extends State<HomePage> {
           () => Navigator.push(context, MaterialPageRoute(builder: (_) => const LogrosPage()))),
       _GrillaItem(Icons.dashboard, const Color(0xFFFFD700), 'Dashboard 📈',
           () => Navigator.push(context, MaterialPageRoute(builder: (_) => const DashboardPage()))),
+      _GrillaItem(Icons.bar_chart_rounded, const Color(0xFF7C6AF7), 'Estadísticas 📊',
+          () => Navigator.push(context, MaterialPageRoute(builder: (_) => const EstadisticasPage()))),
       _GrillaItem(Icons.notifications, const Color(0xFF5DE0C5), 'Notificaciones 🔔',
           () => Navigator.push(context, MaterialPageRoute(builder: (_) => const PantallaNotificaciones()))),
     ];

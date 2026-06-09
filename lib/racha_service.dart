@@ -27,6 +27,7 @@ class RachaService {
         'escudos': 1,
         'escudo_semana': semanaActual,
       }, SetOptions(merge: true));
+      await _guardarHistorialRacha(1, hoy);
       return;
     }
 
@@ -68,6 +69,7 @@ class RachaService {
         if (esSemanaNueva) 'escudo_semana': semanaActual,
         if (esSemanaNueva) 'escudos': 1,
       });
+      await _guardarHistorialRacha(1, hoy);
       return;
     }
 
@@ -92,6 +94,7 @@ class RachaService {
         if (esSemanaNueva) 'escudo_semana': semanaActual,
         if (esSemanaNueva) 'escudos': 1,
       });
+      await _guardarHistorialRacha(nuevaRacha, hoy);
     } else {
       // Racha rota: aplicar escudo automáticamente si hay uno
       if (escudosEfectivos > 0) {
@@ -103,6 +106,7 @@ class RachaService {
           'escudo_usado_en': Timestamp.fromDate(hoy),
           if (necesitaReset) 'ultimoReset': Timestamp.fromDate(hoy),
         });
+        await _guardarHistorialRacha(rachaActual, hoy);
       } else {
         await docRef.update({
           'racha': 1,
@@ -111,7 +115,24 @@ class RachaService {
           if (esSemanaNueva) 'escudo_semana': semanaActual,
           if (esSemanaNueva) 'escudos': 1,
         });
+        await _guardarHistorialRacha(1, hoy);
       }
+    }
+  }
+
+  Future<void> _guardarHistorialRacha(int racha, DateTime fecha) async {
+    if (_user == null) return;
+    final fechaStr =
+        '${fecha.year}-${fecha.month.toString().padLeft(2, '0')}-${fecha.day.toString().padLeft(2, '0')}';
+    try {
+      await _db.collection('historial_racha').add({
+        'userId': _user!.uid,
+        'racha': racha,
+        'fechaStr': fechaStr,
+        'fecha': Timestamp.fromDate(fecha),
+      });
+    } catch (e) {
+      debugPrint('[RachaService] Error al guardar historial_racha: $e');
     }
   }
 

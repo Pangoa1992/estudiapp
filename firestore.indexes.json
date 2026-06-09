@@ -124,6 +124,30 @@
         { "fieldPath": "completado", "order": "ASCENDING" },
         { "fieldPath": "puntuacion", "order": "DESCENDING" }
       ]
+    },
+    {
+      "collectionGroup": "sesiones_pomodoro",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "userId", "order": "ASCENDING" },
+        { "fieldPath": "fecha", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "historial_racha",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "userId", "order": "ASCENDING" },
+        { "fieldPath": "fecha", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "pdf_resultados",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "userId", "order": "ASCENDING" },
+        { "fieldPath": "fechaFin", "order": "ASCENDING" }
+      ]
     }
   ],
   "fieldOverrides": []
