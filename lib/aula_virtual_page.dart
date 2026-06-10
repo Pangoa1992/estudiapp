@@ -74,7 +74,7 @@ class _AulaVirtualPageState extends State<AulaVirtualPage>
     return Scaffold(
       backgroundColor: const Color(0xFF0F0F14),
       appBar: AppBar(
-        title: const Text('Aula Virtual 🏫',
+        title: const Text('Aula Virtual',
             style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
         backgroundColor: const Color(0xFF0F0F14),
         iconTheme: const IconThemeData(color: Colors.white),

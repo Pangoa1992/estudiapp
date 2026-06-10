@@ -219,7 +219,7 @@ Responde SOLO con JSON válido:
     return Scaffold(
       backgroundColor: const Color(0xFF0F0F14),
       appBar: AppBar(
-        title: const Text('Técnica Feynman 🧪',
+        title: const Text('Técnica Feynman',
             style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
         backgroundColor: const Color(0xFF0F0F14),
         iconTheme: const IconThemeData(color: Colors.white),

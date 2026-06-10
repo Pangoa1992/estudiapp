@@ -260,11 +260,11 @@ class _GrupoEstudioPageState extends State<GrupoEstudioPage> {
                     fontSize: 18,
                     fontWeight: FontWeight.bold)),
             const SizedBox(height: 20),
-            _accionBtn(ctx, '➕ Crear un grupo nuevo', const Color(0xFF7C6AF7),
-                _mostrarCrear),
+            _accionBtn(ctx, 'Crear un grupo nuevo', Icons.add_circle_outline,
+                const Color(0xFF7C6AF7), _mostrarCrear),
             const SizedBox(height: 10),
-            _accionBtn(ctx, '🔗 Unirme con código', const Color(0xFF5DE0C5),
-                _mostrarUnirse),
+            _accionBtn(ctx, 'Unirme con código', Icons.link,
+                const Color(0xFF5DE0C5), _mostrarUnirse),
           ],
         ),
       ),
@@ -272,7 +272,7 @@ class _GrupoEstudioPageState extends State<GrupoEstudioPage> {
   }
 
   Widget _accionBtn(
-      BuildContext ctx, String label, Color color, VoidCallback accion) {
+      BuildContext ctx, String label, IconData icon, Color color, VoidCallback accion) {
     return GestureDetector(
       onTap: () {
         Navigator.pop(ctx);
@@ -286,12 +286,17 @@ class _GrupoEstudioPageState extends State<GrupoEstudioPage> {
           borderRadius: BorderRadius.circular(12),
           border: Border.all(color: color.withValues(alpha: 0.4)),
         ),
-        child: Center(
-          child: Text(label,
-              style: TextStyle(
-                  color: color,
-                  fontWeight: FontWeight.bold,
-                  fontSize: 14)),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(icon, color: color, size: 18),
+            const SizedBox(width: 8),
+            Text(label,
+                style: TextStyle(
+                    color: color,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 14)),
+          ],
         ),
       ),
     );

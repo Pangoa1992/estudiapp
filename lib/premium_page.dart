@@ -56,27 +56,28 @@ class _PremiumPageState extends State<PremiumPage> {
   }
 
   Future<void> _initIAP() async {
-    final available = await InAppPurchase.instance.isAvailable();
-    if (!available) {
-      if (mounted) setState(() { _iapAvailable = false; _loadingProducts = false; });
-      return;
-    }
-    if (!mounted) return;
-    final res = await InAppPurchase.instance
-        .queryProductDetails({_kProductId, _kProductIdAnual});
-    if (mounted) {
+    try {
+      final available = await InAppPurchase.instance.isAvailable();
+      if (!available) {
+        if (mounted) setState(() { _iapAvailable = false; _loadingProducts = false; });
+        return;
+      }
+      final res = await InAppPurchase.instance
+          .queryProductDetails({_kProductId, _kProductIdAnual});
+      if (!mounted) return;
       setState(() {
         _iapAvailable = true;
         _productoMensual = res.productDetails
             .where((p) => p.id == _kProductId).firstOrNull;
         _productoAnual = res.productDetails
             .where((p) => p.id == _kProductIdAnual).firstOrNull;
-        // Si solo existe el mensual, pre-seleccionarlo
         if (_productoAnual == null && _productoMensual != null) {
           _planAnualSeleccionado = false;
         }
         _loadingProducts = false;
       });
+    } catch (_) {
+      if (mounted) setState(() { _iapAvailable = false; _loadingProducts = false; });
     }
   }
 
@@ -90,15 +91,24 @@ class _PremiumPageState extends State<PremiumPage> {
           planId: p.productID,
           purchaseToken: p.verificationData.serverVerificationData,
         );
-        await _load();
         if (p.pendingCompletePurchase) {
           await InAppPurchase.instance.completePurchase(p);
         }
+        await _load();
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-            content: Text('¡Premium activado con éxito! 🎉'),
+            content: Text('¡Premium activado con éxito!'),
             backgroundColor: Color(0xFF7C6AF7),
             duration: Duration(seconds: 3),
+          ));
+        }
+      } else if (p.status == PurchaseStatus.pending) {
+        if (mounted) setState(() => _loading = false);
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+            content: Text('Pago pendiente de confirmación bancaria...'),
+            backgroundColor: Color(0xFF2A2A3E),
+            duration: Duration(seconds: 4),
           ));
         }
       } else if (p.status == PurchaseStatus.error) {

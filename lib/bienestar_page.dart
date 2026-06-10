@@ -99,7 +99,7 @@ class _BienestarPageState extends State<BienestarPage> {
     return Scaffold(
       backgroundColor: const Color(0xFF0F0F14),
       appBar: AppBar(
-        title: const Text('Mi Bienestar 💚',
+        title: const Text('Mi Bienestar',
             style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
         backgroundColor: const Color(0xFF0F0F14),
         iconTheme: const IconThemeData(color: Colors.white),

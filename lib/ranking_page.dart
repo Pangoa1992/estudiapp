@@ -20,7 +20,7 @@ class RankingPage extends StatelessWidget {
       backgroundColor: const Color(0xFF0F0F14),
       appBar: AppBar(
         backgroundColor: const Color(0xFF0F0F14),
-        title: const Text('Ranking semanal 🏆',
+        title: const Text('Ranking semanal',
             style: TextStyle(
                 color: Colors.white, fontWeight: FontWeight.bold)),
         iconTheme: const IconThemeData(color: Colors.white),
@@ -52,7 +52,7 @@ class RankingPage extends StatelessWidget {
                   _buildVacio()
                 else
                   ...docs.asMap().entries.map((e) {
-                    final d = e.value.data() as Map<String, dynamic>;
+                    final d = (e.value.data() as Map<String, dynamic>? ) ?? {};
                     return _buildFila(
                       pos: e.key + 1,
                       nombre: d['userName'] as String? ?? 'Estudiante',

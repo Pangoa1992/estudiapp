@@ -146,7 +146,7 @@ class _SRSDecksPageState extends State<SRSDecksPage> {
     return Scaffold(
       backgroundColor: const Color(0xFF0F0F14),
       appBar: AppBar(
-        title: const Text('Flashcards SRS 🧠',
+        title: const Text('Flashcards SRS',
             style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
         backgroundColor: const Color(0xFF0F0F14),
         iconTheme: const IconThemeData(color: Colors.white),

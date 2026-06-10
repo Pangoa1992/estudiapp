@@ -310,7 +310,7 @@ class _PerfilPageState extends State<PerfilPage> {
                       builder: (context, logrosSnapshot) {
                         final logros = logrosSnapshot.data?.exists == true
                             ? List.from(
-                                    (logrosSnapshot.data!.data() as Map)['obtenidos'] ?? [])
+                                    ((logrosSnapshot.data!.data() as Map?) ?? {})['obtenidos'] ?? [])
                                 .length
                             : 0;
                         return _buildStat('Logros', '$logros/10', Icons.star,

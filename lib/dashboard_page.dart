@@ -83,7 +83,7 @@ class _DashboardPageState extends State<DashboardPage> {
                       builder: (context, logrosSnapshot) {
                         final logrosObtenidos = logrosSnapshot.data?.exists == true
                             ? List.from(
-                                (logrosSnapshot.data!.data() as Map)['obtenidos'] ?? [],
+                                ((logrosSnapshot.data!.data() as Map?) ?? {})['obtenidos'] ?? [],
                               ).length
                             : 0;
 
