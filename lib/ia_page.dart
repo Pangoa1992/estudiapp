@@ -18,6 +18,7 @@ import 'services/ia_limite_service.dart';
 import 'package:cloud_functions/cloud_functions.dart';
 import 'package:share_plus/share_plus.dart';
 import 'premium_page.dart';
+import 'services/monedas_service.dart';
 
 class IAPage extends StatefulWidget {
   const IAPage({super.key});
@@ -277,6 +278,7 @@ class _IAPageState extends State<IAPage> {
           .doc(user.uid)
           .set({'iaUsosTotal': FieldValue.increment(1)}, SetOptions(merge: true));
     }
+    MonedasService.agregar(MonedasService.porIA, 'ia');
     return true;
   }
   // ── FIN ADS + LÍMITE ──────────────────────────────────

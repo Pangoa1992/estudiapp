@@ -7,6 +7,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:http/http.dart' as http;
 import 'services/compartir_service.dart';
+import 'services/monedas_service.dart';
 import 'services/premium_service.dart';
 import 'premium_page.dart';
 
@@ -313,6 +314,11 @@ class _PdfSimulacroPageState extends State<PdfSimulacroPage> {
         {'simulacrosCompletados': FieldValue.increment(1)},
         SetOptions(merge: true),
       );
+      // Monedas por simulacro completado
+      MonedasService.agregar(MonedasService.porSimulacro, 'simulacro');
+      if (_preguntas.isNotEmpty && c == _preguntas.length) {
+        MonedasService.agregar(MonedasService.porPerfecto, 'simulacro_perfecto');
+      }
       // Actualizar ranking semanal
       final semana = _semanaActual();
       _db.collection('ranking_semanal').doc('${semana}_$uid').set({

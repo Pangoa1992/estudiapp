@@ -42,8 +42,10 @@ import 'pdf_simulacro_page.dart';
 import 'grupo_estudio_page.dart';
 import 'estadisticas_page.dart';
 import 'ranking_page.dart';
+import 'tienda_page.dart';
 import 'services/compartir_service.dart';
 import 'services/fcm_service.dart';
+import 'services/monedas_service.dart';
 import 'bienvenida_dialog.dart';
 
 void main() async {
@@ -191,6 +193,7 @@ class _HomePageState extends State<HomePage> {
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       await _mostrarAvisoBateria();
       _mostrarBienvenida();
+      _mostrarRecompensaDiaria();
     });
     _bannerAd = BannerAd(
       adUnitId: 'ca-app-pub-6530298594670805/7501861973',
@@ -284,6 +287,24 @@ class _HomePageState extends State<HomePage> {
     } catch (e) {
       debugPrint('[HomePage] Error al mostrar bienvenida: $e');
     }
+  }
+
+  Future<void> _mostrarRecompensaDiaria() async {
+    final monedas = await MonedasService.recompensaDiaria();
+    if (monedas <= 0 || !mounted) return;
+    final msg = monedas >= 200
+        ? '🪙 +$monedas monedas — ¡Racha de 30 días!'
+        : monedas >= 50
+            ? '🪙 +$monedas monedas — ¡Racha semanal!'
+            : '🪙 +$monedas monedas de recompensa diaria';
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(msg, style: const TextStyle(fontWeight: FontWeight.w600)),
+        duration: const Duration(seconds: 3),
+        behavior: SnackBarBehavior.floating,
+        backgroundColor: const Color(0xFF2A2A1E),
+      ),
+    );
   }
 
   Future<void> _activarRecordatorios() async {
@@ -444,7 +465,7 @@ class _HomePageState extends State<HomePage> {
                         fontWeight: FontWeight.w600)),
               ),
             ),
-            const SizedBox(width: 10),
+            const SizedBox(width: 8),
             StreamBuilder<DocumentSnapshot>(
               stream: (user?.uid ?? '').isNotEmpty
                   ? _db.collection('perfiles').doc(user!.uid).snapshots()
@@ -453,50 +474,84 @@ class _HomePageState extends State<HomePage> {
                 final data = perfilSnap.data?.data() as Map<String, dynamic>?;
                 final isPremium = data?['isPremium'] == true;
                 final carrera = data?['carrera'] as String? ?? '';
-                return GestureDetector(
-                  onTap: () => Navigator.push(context,
-                      MaterialPageRoute(builder: (_) => const PerfilPage())),
-                  child: Stack(
-                    clipBehavior: Clip.none,
-                    children: [
-                      CircleAvatar(
-                        radius: 22,
-                        backgroundColor: const Color(0xFF7C6AF7),
-                        backgroundImage: user?.photoURL != null
-                            ? NetworkImage(user!.photoURL!)
-                            : null,
-                        child: user?.photoURL == null
-                            ? Text(
-                                _nombreUsuario.isNotEmpty
-                                    ? _nombreUsuario[0].toUpperCase()
-                                    : 'U',
+                final monedas = (data?['monedas'] as num? ?? 0).toInt();
+                return Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    GestureDetector(
+                      onTap: () => Navigator.push(context,
+                          MaterialPageRoute(builder: (_) => const TiendaPage())),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 10, vertical: 8),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF1E1E2A),
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(
+                              color: const Color(0xFFFFD700).withOpacity(0.5)),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Text('🪙',
+                                style: TextStyle(fontSize: 14)),
+                            const SizedBox(width: 4),
+                            Text('$monedas',
                                 style: const TextStyle(
-                                    color: Colors.white,
-                                    fontWeight: FontWeight.bold),
-                              )
-                            : null,
+                                    color: Color(0xFFFFD700),
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.bold)),
+                          ],
+                        ),
                       ),
-                      if (isPremium)
-                        const Positioned(
-                          right: -2,
-                          bottom: -2,
-                          child: Text('⭐', style: TextStyle(fontSize: 13)),
-                        ),
-                      if (!isPremium && carrera.isEmpty)
-                        Positioned(
-                          right: -2,
-                          top: -2,
-                          child: Container(
-                            width: 10,
-                            height: 10,
-                            decoration: const BoxDecoration(
-                              color: Color(0xFFF7A26A),
-                              shape: BoxShape.circle,
-                            ),
+                    ),
+                    const SizedBox(width: 8),
+                    GestureDetector(
+                      onTap: () => Navigator.push(context,
+                          MaterialPageRoute(builder: (_) => const PerfilPage())),
+                      child: Stack(
+                        clipBehavior: Clip.none,
+                        children: [
+                          CircleAvatar(
+                            radius: 22,
+                            backgroundColor: const Color(0xFF7C6AF7),
+                            backgroundImage: user?.photoURL != null
+                                ? NetworkImage(user!.photoURL!)
+                                : null,
+                            child: user?.photoURL == null
+                                ? Text(
+                                    _nombreUsuario.isNotEmpty
+                                        ? _nombreUsuario[0].toUpperCase()
+                                        : 'U',
+                                    style: const TextStyle(
+                                        color: Colors.white,
+                                        fontWeight: FontWeight.bold),
+                                  )
+                                : null,
                           ),
-                        ),
-                    ],
-                  ),
+                          if (isPremium)
+                            const Positioned(
+                              right: -2,
+                              bottom: -2,
+                              child: Text('⭐', style: TextStyle(fontSize: 13)),
+                            ),
+                          if (!isPremium && carrera.isEmpty)
+                            Positioned(
+                              right: -2,
+                              top: -2,
+                              child: Container(
+                                width: 10,
+                                height: 10,
+                                decoration: const BoxDecoration(
+                                  color: Color(0xFFF7A26A),
+                                  shape: BoxShape.circle,
+                                ),
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
+                  ],
                 );
               },
             ),
@@ -1032,6 +1087,8 @@ class _HomePageState extends State<HomePage> {
           () => Navigator.push(context, MaterialPageRoute(builder: (_) => const RankingPage()))),
       _GrillaItem(Icons.notifications, const Color(0xFF5DE0C5), 'Notificaciones 🔔',
           () => Navigator.push(context, MaterialPageRoute(builder: (_) => const PantallaNotificaciones()))),
+      _GrillaItem(Icons.storefront, const Color(0xFFFFD700), 'Tienda 🪙',
+          () => Navigator.push(context, MaterialPageRoute(builder: (_) => const TiendaPage()))),
     ];
 
     return Column(

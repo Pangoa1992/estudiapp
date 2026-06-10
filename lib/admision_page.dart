@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'services/ia_service.dart';
+import 'services/monedas_service.dart';
 import 'mixins/ia_limite_mixin.dart';
 
 // ── Country + exam metadata ────────────────────────────────────────────────
@@ -178,6 +179,11 @@ class _AdmisionPageState extends State<AdmisionPage>
         'fechaFin': Timestamp.now(),
       });
     } catch (_) {}
+
+    MonedasService.agregar(MonedasService.porSimulacro, 'simulacro_admision');
+    if (total > 0 && correctas == total) {
+      MonedasService.agregar(MonedasService.porPerfecto, 'simulacro_admision_perfecto');
+    }
   }
 
   // ── Build ───────────────────────────────────────────────────────────────

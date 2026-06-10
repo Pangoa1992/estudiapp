@@ -4,6 +4,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'racha_service.dart';
+import 'services/monedas_service.dart';
 
 class PomodoroPage extends StatefulWidget {
   const PomodoroPage({super.key});
@@ -91,6 +92,17 @@ class _PomodoroPageState extends State<PomodoroPage> {
               _sesionesCompletadas++;
               _guardarSesionesHoy();
               _guardarSesionFirestore();
+              MonedasService.agregar(MonedasService.porPomodoro, 'pomodoro');
+              if (mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('🪙 +10 monedas por completar sesión'),
+                    duration: Duration(seconds: 2),
+                    behavior: SnackBarBehavior.floating,
+                    backgroundColor: Color(0xFF2A2A3E),
+                  ),
+                );
+              }
               // Primera sesión del día: garantiza que la racha se registre
               if (_sesionesCompletadas == 1) {
                 RachaService().verificarRacha();

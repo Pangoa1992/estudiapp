@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
+import 'services/monedas_service.dart';
 
 class RachaService {
   final _db = FirebaseFirestore.instance;
@@ -95,6 +96,13 @@ class RachaService {
         if (esSemanaNueva) 'escudos': 1,
       });
       await _guardarHistorialRacha(nuevaRacha, hoy);
+      // Monedas por racha diaria (x2 si boost activo)
+      final boostHasta = data['boost_racha_hasta'] as Timestamp?;
+      final tieneBoost = boostHasta != null && boostHasta.toDate().isAfter(DateTime.now());
+      await MonedasService.agregar(
+        MonedasService.porRachaDiaria * (tieneBoost ? 2 : 1),
+        'racha',
+      );
     } else {
       // Racha rota: aplicar escudo automáticamente si hay uno
       if (escudosEfectivos > 0) {
