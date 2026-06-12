@@ -159,7 +159,10 @@ class MyApp extends StatelessWidget {
                           CircularProgressIndicator(color: Color(0xFF7C6AF7))),
                 );
               }
-              return authSnap.data != null
+              // Treat anonymous users same as logged-out: redirect to login
+              // so they're not stuck in a broken profile state.
+              final user = authSnap.data;
+              return (user != null && !user.isAnonymous)
                   ? const HomePage()
                   : const LoginPage();
             },

@@ -57,12 +57,34 @@ class _CalificacionesPageState extends State<CalificacionesPage> {
   }
 
   void _agregarNota() async {
-    final cursosSnap = await _db
-        .collection('cursos')
-        .where('userId', isEqualTo: _user?.uid)
-        .get();
-    if (!mounted) return;
-    _dialogoAgregar(cursosSnap.docs);
+    final uid = _user?.uid;
+    if (uid == null) return;
+    try {
+      final cursosSnap = await _db
+          .collection('cursos')
+          .where('userId', isEqualTo: uid)
+          .get();
+      if (!mounted) return;
+      if (cursosSnap.docs.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Primero agrega un curso en "Mis cursos"'),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+        return;
+      }
+      _dialogoAgregar(cursosSnap.docs);
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error al cargar cursos: $e'),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    }
   }
 
   Future<void> _dialogoAgregar(List<QueryDocumentSnapshot> cursos) async {
@@ -159,7 +181,20 @@ class _CalificacionesPageState extends State<CalificacionesPage> {
                 onTap: () async {
                   final nota = double.tryParse(notaCtrl.text);
                   final peso = double.tryParse(pesoCtrl.text) ?? 100;
-                  if (cursoId == null || nota == null) return;
+                  if (cursoId == null) {
+                    ScaffoldMessenger.of(ctx).showSnackBar(const SnackBar(
+                      content: Text('Selecciona un curso'),
+                      behavior: SnackBarBehavior.floating,
+                    ));
+                    return;
+                  }
+                  if (nota == null) {
+                    ScaffoldMessenger.of(ctx).showSnackBar(const SnackBar(
+                      content: Text('Ingresa una nota válida'),
+                      behavior: SnackBarBehavior.floating,
+                    ));
+                    return;
+                  }
                   await GpaService.agregar(Calificacion(
                     id: '',
                     cursoId: cursoId!,

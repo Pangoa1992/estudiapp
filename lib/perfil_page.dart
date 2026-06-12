@@ -104,7 +104,10 @@ class _PerfilPageState extends State<PerfilPage> {
               backgroundImage: user?.photoURL != null ? NetworkImage(user!.photoURL!) : null,
               child: user?.photoURL == null
                   ? Text(
-                      user?.displayName?.substring(0, 1).toUpperCase() ?? 'U',
+                      (user?.displayName?.isNotEmpty == true
+                              ? user!.displayName![0]
+                              : 'U')
+                          .toUpperCase(),
                       style: const TextStyle(
                           color: Colors.white, fontSize: 36, fontWeight: FontWeight.bold),
                     )
