@@ -1,6 +1,8 @@
+import 'dart:async' show unawaited;
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
+import 'niveles_service.dart';
 
 class MonedasService {
   static const int porPomodoro = 10;
@@ -80,6 +82,7 @@ class MonedasService {
         'monedas': FieldValue.increment(monedas),
         'monedas_fecha_recompensa': hoy,
       });
+      unawaited(NivelesService.ganarXP(25, 'recompensa_diaria'));
       return monedas;
     } catch (e) {
       debugPrint('[MonedasService] Error en recompensa diaria: $e');

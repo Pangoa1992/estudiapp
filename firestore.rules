@@ -178,6 +178,11 @@ service cloud.firestore {
       allow update: if esAutenticado() && resource.data.userId == request.auth.uid;
     }
 
+    // ── Misiones (gamificación) ───────────────────────────────────────────────
+    match /misiones/{userId} {
+      allow read, write: if esAutenticado() && esPropietario(userId);
+    }
+
     // ── Historial de racha ────────────────────────────────────────────────────
     match /historial_racha/{docId} {
       allow read, write: if esAutenticado() && resource.data.userId == request.auth.uid;

@@ -46,6 +46,9 @@ import 'tienda_page.dart';
 import 'services/compartir_service.dart';
 import 'services/fcm_service.dart';
 import 'services/monedas_service.dart';
+import 'services/misiones_service.dart';
+import 'services/niveles_service.dart';
+import 'misiones_page.dart';
 import 'bienvenida_dialog.dart';
 
 void main() async {
@@ -189,6 +192,7 @@ class _HomePageState extends State<HomePage> {
     super.initState();
     RachaService().verificarRacha();
     unawaited(FcmService.inicializar()); // push notifications (no bloquea arranque)
+    unawaited(MisionesService.generarMisionesSiNecesario());
     _activarRecordatorios();
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       await _mostrarAvisoBateria();
@@ -475,9 +479,41 @@ class _HomePageState extends State<HomePage> {
                 final isPremium = data?['isPremium'] == true;
                 final carrera = data?['carrera'] as String? ?? '';
                 final monedas = (data?['monedas'] as num? ?? 0).toInt();
+                final xpTotal = (data?['xp_total'] as num? ?? 0).toInt();
+                final nivel = NivelesService.nivelDesdeXpTotal(xpTotal);
+                final emojiNivel = NivelesService.emojiDeNivel(nivel);
                 return Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
+                    // Nivel badge
+                    GestureDetector(
+                      onTap: () => Navigator.push(context,
+                          MaterialPageRoute(builder: (_) => const MisionesPage())),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 8, vertical: 8),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF1E1E2A),
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(
+                              color: const Color(0xFF7C6AF7).withOpacity(0.5)),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(emojiNivel,
+                                style: const TextStyle(fontSize: 12)),
+                            const SizedBox(width: 3),
+                            Text('Nv.$nivel',
+                                style: const TextStyle(
+                                    color: Color(0xFF9D8FFF),
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.bold)),
+                          ],
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 6),
                     GestureDetector(
                       onTap: () => Navigator.push(context,
                           MaterialPageRoute(builder: (_) => const TiendaPage())),
@@ -1089,6 +1125,8 @@ class _HomePageState extends State<HomePage> {
           () => Navigator.push(context, MaterialPageRoute(builder: (_) => const PantallaNotificaciones()))),
       _GrillaItem(Icons.storefront, const Color(0xFFFFD700), 'Tienda',
           () => Navigator.push(context, MaterialPageRoute(builder: (_) => const TiendaPage()))),
+      _GrillaItem(Icons.task_alt, const Color(0xFF5DE0C5), 'Misiones',
+          () => Navigator.push(context, MaterialPageRoute(builder: (_) => const MisionesPage()))),
     ];
 
     return Column(

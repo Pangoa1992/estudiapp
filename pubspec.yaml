@@ -2,7 +2,7 @@ name: app_universitaria
 description: "EstudiApp — Organizador académico con IA para universitarios."
 publish_to: 'none'
 
-version: 1.8.5+81
+version: 1.8.6+82
 
 environment:
   sdk: ^3.6.2
