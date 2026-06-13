@@ -5,6 +5,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'historial_page.dart';
 import 'notificaciones_service.dart';
 import 'cache_service.dart';
+import 'l10n_helper.dart';
 
 class HabitosPage extends StatefulWidget {
   const HabitosPage({super.key});
@@ -18,18 +19,19 @@ class _HabitosPageState extends State<HabitosPage> {
   final _db = FirebaseFirestore.instance;
   StreamSubscription? _cacheSub;
 
-  final List<Map<String, dynamic>> _iconos = [
-    {'icon': Icons.book, 'label': 'Estudio'},
-    {'icon': Icons.water_drop, 'label': 'Agua'},
-    {'icon': Icons.directions_run, 'label': 'Ejercicio'},
-    {'icon': Icons.edit_note, 'label': 'Apuntes'},
-    {'icon': Icons.bed, 'label': 'Dormir'},
-    {'icon': Icons.restaurant, 'label': 'Comer'},
-    {'icon': Icons.music_note, 'label': 'Musica'},
-    {'icon': Icons.self_improvement, 'label': 'Meditacion'},
+  List<Map<String, dynamic>> _iconos(AppLocalizations l10n) => [
+    {'icon': Icons.book, 'label': l10n.iconStudy},
+    {'icon': Icons.water_drop, 'label': l10n.iconWater},
+    {'icon': Icons.directions_run, 'label': l10n.iconExercise},
+    {'icon': Icons.edit_note, 'label': l10n.iconNotes},
+    {'icon': Icons.bed, 'label': l10n.iconSleep},
+    {'icon': Icons.restaurant, 'label': l10n.iconEat},
+    {'icon': Icons.music_note, 'label': l10n.iconMusic},
+    {'icon': Icons.self_improvement, 'label': l10n.iconMeditation},
   ];
 
-  final List<String> _frecuencias = ['Diario', 'Lun', 'Mar', 'Mie', 'Jue', 'Vie', 'Sab', 'Dom'];
+  List<String> _frecuencias(AppLocalizations l10n) =>
+      [l10n.freqDaily, l10n.freqMon, l10n.freqTue, l10n.freqWed, l10n.freqThu, l10n.freqFri, l10n.freqSat, l10n.freqSun];
 
   @override
   void initState() {
@@ -69,10 +71,12 @@ class _HabitosPageState extends State<HabitosPage> {
   }
 
   void _mostrarFormulario({Map<String, dynamic>? habito, String? docId}) {
+    final l10n = context.l10n;
     final nombreController = TextEditingController(text: habito?['nombre'] ?? '');
     final horaController = TextEditingController(text: habito?['hora'] ?? '');
     int iconoSeleccionado = habito?['icono'] ?? 0;
-    String frecuenciaSeleccionada = habito?['frecuencia'] ?? 'Diario';
+    final frecuencias = _frecuencias(l10n);
+    String frecuenciaSeleccionada = habito?['frecuencia'] ?? frecuencias[0];
 
     showModalBottomSheet(
       context: context,
@@ -89,14 +93,14 @@ class _HabitosPageState extends State<HabitosPage> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(habito == null ? 'Nuevo habito' : 'Editar habito',
+              Text(habito == null ? l10n.newHabit : l10n.editHabit,
                   style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
               const SizedBox(height: 16),
               TextField(
                 controller: nombreController,
                 style: const TextStyle(color: Colors.white),
                 decoration: InputDecoration(
-                  labelText: 'Nombre del habito',
+                  labelText: l10n.habitName,
                   labelStyle: const TextStyle(color: Color(0xFF7C6AF7)),
                   filled: true,
                   fillColor: const Color(0xFF0F0F14),
@@ -105,7 +109,6 @@ class _HabitosPageState extends State<HabitosPage> {
               ),
               const SizedBox(height: 12),
 
-              // ── SELECTOR DE HORA CON RELOJ ──
               GestureDetector(
                 onTap: () async {
                   final tiempo = await showTimePicker(
@@ -140,7 +143,7 @@ class _HabitosPageState extends State<HabitosPage> {
                       const Icon(Icons.access_time, color: Color(0xFF7C6AF7), size: 20),
                       const SizedBox(width: 10),
                       Text(
-                        horaController.text.isEmpty ? 'Seleccionar hora' : horaController.text,
+                        horaController.text.isEmpty ? l10n.selectTime : horaController.text,
                         style: TextStyle(
                           color: horaController.text.isEmpty ? Colors.white38 : Colors.white,
                           fontSize: 15,
@@ -154,12 +157,12 @@ class _HabitosPageState extends State<HabitosPage> {
               ),
 
               const SizedBox(height: 12),
-              const Text('Frecuencia:', style: TextStyle(color: Colors.white54, fontSize: 12)),
+              Text(l10n.frequency, style: const TextStyle(color: Colors.white54, fontSize: 12)),
               const SizedBox(height: 8),
               Wrap(
                 spacing: 8,
                 runSpacing: 8,
-                children: _frecuencias.map((f) {
+                children: frecuencias.map((f) {
                   final selected = frecuenciaSeleccionada == f;
                   return GestureDetector(
                     onTap: () => setModalState(() => frecuenciaSeleccionada = f),
@@ -179,11 +182,11 @@ class _HabitosPageState extends State<HabitosPage> {
                 }).toList(),
               ),
               const SizedBox(height: 12),
-              const Text('Icono:', style: TextStyle(color: Colors.white54, fontSize: 12)),
+              Text(l10n.iconPickerLabel, style: const TextStyle(color: Colors.white54, fontSize: 12)),
               const SizedBox(height: 8),
               Wrap(
                 spacing: 8,
-                children: _iconos.asMap().entries.map((entry) {
+                children: _iconos(l10n).asMap().entries.map((entry) {
                   final selected = iconoSeleccionado == entry.key;
                   return GestureDetector(
                     onTap: () => setModalState(() => iconoSeleccionado = entry.key),
@@ -193,7 +196,7 @@ class _HabitosPageState extends State<HabitosPage> {
                         color: selected ? const Color(0xFF7C6AF7) : const Color(0xFF0F0F14),
                         borderRadius: BorderRadius.circular(10),
                       ),
-                      child: Icon(entry.value['icon'], color: Colors.white, size: 22),
+                      child: Icon(entry.value['icon'] as IconData, color: Colors.white, size: 22),
                     ),
                   );
                 }).toList(),
@@ -231,7 +234,7 @@ class _HabitosPageState extends State<HabitosPage> {
                     padding: const EdgeInsets.symmetric(vertical: 14),
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                   ),
-                  child: Text(habito == null ? 'Agregar habito' : 'Guardar cambios',
+                  child: Text(habito == null ? l10n.addHabitBtn : l10n.saveChanges,
                       style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
                 ),
               ),
@@ -244,11 +247,13 @@ class _HabitosPageState extends State<HabitosPage> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    final iconos = _iconos(l10n);
     return Scaffold(
       backgroundColor: const Color(0xFF0F0F14),
       appBar: AppBar(
         backgroundColor: const Color(0xFF0F0F14),
-        title: const Text('Mis habitos', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+        title: Text(l10n.myHabits, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
         iconTheme: const IconThemeData(color: Colors.white),
         actions: [
           IconButton(
@@ -271,14 +276,14 @@ class _HabitosPageState extends State<HabitosPage> {
             return const Center(child: CircularProgressIndicator(color: Color(0xFF7C6AF7)));
           }
           if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-            return const Center(
+            return Center(
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(Icons.check_circle_outline, color: Colors.white24, size: 60),
-                  SizedBox(height: 12),
-                  Text('No tienes habitos', style: TextStyle(color: Colors.white38)),
-                  Text('Toca + para agregar uno', style: TextStyle(color: Colors.white24, fontSize: 12)),
+                  const Icon(Icons.check_circle_outline, color: Colors.white24, size: 60),
+                  const SizedBox(height: 12),
+                  Text(l10n.noHabits, style: const TextStyle(color: Colors.white38)),
+                  Text(l10n.tapPlusToAdd, style: const TextStyle(color: Colors.white24, fontSize: 12)),
                 ],
               ),
             );
@@ -290,8 +295,8 @@ class _HabitosPageState extends State<HabitosPage> {
               final doc = snapshot.data!.docs[i];
               final data = doc.data() as Map<String, dynamic>;
               final iconoIndex = data['icono'] ?? 0;
-              final icono = _iconos[iconoIndex < _iconos.length ? iconoIndex : 0]['icon'] as IconData;
-              final frecuencia = data['frecuencia'] ?? 'Diario';
+              final icono = iconos[iconoIndex < iconos.length ? iconoIndex : 0]['icon'] as IconData;
+              final frecuencia = data['frecuencia'] ?? l10n.freqDaily;
 
               return Container(
                 margin: const EdgeInsets.only(bottom: 8),
@@ -350,12 +355,12 @@ class _HabitosPageState extends State<HabitosPage> {
                       color: const Color(0xFF1E1E2A),
                       itemBuilder: (_) => [
                         PopupMenuItem(
-                          child: const Text('Editar', style: TextStyle(color: Colors.white)),
+                          child: Text(l10n.edit, style: const TextStyle(color: Colors.white)),
                           onTap: () => Future.delayed(Duration.zero,
                               () => _mostrarFormulario(habito: data, docId: doc.id)),
                         ),
                         PopupMenuItem(
-                          child: const Text('Eliminar', style: TextStyle(color: Colors.redAccent)),
+                          child: Text(l10n.delete, style: const TextStyle(color: Colors.redAccent)),
                           onTap: () {
                             NotificacionesService.cancelarNotificacion(doc.id.hashCode.abs());
                             _db.collection('habitos').doc(doc.id).delete();

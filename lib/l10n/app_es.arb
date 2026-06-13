@@ -1,0 +1,563 @@
+{
+  "@@locale": "es",
+
+  "appTitle": "EstudiApp",
+
+  "cancel": "Cancelar",
+  "confirm": "Confirmar",
+  "save": "Guardar",
+  "saveChanges": "Guardar cambios",
+  "edit": "Editar",
+  "delete": "Eliminar",
+  "seeAll": "Ver todos",
+  "add": "Agregar",
+  "back": "Volver",
+  "next": "Siguiente",
+  "skip": "Saltar",
+  "retry": "Reintentar",
+  "loading": "Cargando...",
+  "error": "Error",
+  "close": "Cerrar",
+  "ok": "OK",
+  "yes": "Sí",
+  "no": "No",
+  "newLabel": "Nuevo",
+  "selected": "Seleccionado",
+  "redeem": "Canjear",
+
+  "greetingMorning": "Buenos días,",
+  "greetingAfternoon": "Buenas tardes,",
+  "greetingEvening": "Buenas noches,",
+
+  "streakDays": "{count} días de racha",
+  "@streakDays": {
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  },
+  "shieldAvailable": "Escudo disponible",
+  "shieldNone": "Sin escudo esta semana",
+  "startPomodoro": "Iniciar Pomodoro",
+  "studyWithAI": "Estudiar con IA",
+  "upcomingExamsTitle": "EXÁMENES PRÓXIMOS",
+  "habitsTodayTitle": "HÁBITOS DE HOY",
+  "moreFeaturesTitle": "MÁS FUNCIONES",
+  "signOut": "Cerrar sesión",
+  "addExam": "Agregar examen",
+  "addHabit": "Agregar hábito",
+  "examToday": "¡Hoy es tu examen de {course}!",
+  "@examToday": {
+    "placeholders": {
+      "course": { "type": "String" }
+    }
+  },
+  "examTomorrow": "Mañana: examen de {course}",
+  "@examTomorrow": {
+    "placeholders": {
+      "course": { "type": "String" }
+    }
+  },
+  "examInDays": "Examen de {course} en {days} días",
+  "@examInDays": {
+    "placeholders": {
+      "course": { "type": "String" },
+      "days": { "type": "int" }
+    }
+  },
+  "tapToStudyAI": "Toca para estudiar con IA →",
+  "adminPanel": "Panel Admin 👁️",
+  "batteryTitle": "Activa las notificaciones",
+  "batteryBody": "Para recibir recordatorios desactiva la optimización de batería para EstudiApp.\n\nAjustes → Apps → EstudiApp → Desactiva \"Pausar actividades no utilizadas\"",
+  "batteryNotNow": "Ahora no",
+  "batterySettings": "Ir a Ajustes",
+
+  "gridFlashcards": "Flashcards SRS",
+  "gridMyGrades": "Mis Notas",
+  "gridWellbeing": "Mi Bienestar",
+  "gridPremium": "Premium",
+  "gridAcademy": "Mi Academia",
+  "gridPdfSim": "PDF Simulacro",
+  "gridGroups": "Grupos",
+  "gridFeynman": "Feynman",
+  "gridRealCases": "Casos Reales",
+  "gridVirtual": "Aula Virtual",
+  "gridSimulacros": "Simulacros",
+  "gridStreak": "Racha",
+  "gridAchievements": "Mis Logros",
+  "gridDashboard": "Dashboard",
+  "gridStats": "Estadísticas",
+  "gridRanking": "Ranking",
+  "gridNotifications": "Notificaciones",
+  "gridStore": "Tienda",
+  "gridMissions": "Misiones",
+
+  "loginSubtitle": "Organiza tus examenes,\ncumple tus habitos y no reprobes",
+  "continueGoogle": "Continuar con Google",
+  "freeForever": "Gratis para siempre · Sin tarjeta requerida",
+  "featureStreak": "Racha diaria",
+  "featureCourses": "Tus cursos",
+  "featurePomodoro": "Pomodoro",
+
+  "onb1Title": "Construye tu racha",
+  "onb1Sub": "Ingresa cada día y mantén tu racha activa. Recibe recordatorios a las 8AM, 2PM y 8PM para no olvidarlo.",
+  "onb2Title": "Estudia con IA",
+  "onb2Sub": "Genera resúmenes, flashcards, simulacros y planes de estudio con inteligencia artificial. También resuelve fotos de tus ejercicios.",
+  "onb3Title": "Organiza tus estudios",
+  "onb3Sub": "Registra tus hábitos diarios, controla tus exámenes próximos y genera documentos académicos listos para entregar.",
+  "onb4Title": "Nunca olvides nada",
+  "onb4Sub": "Activa las notificaciones para recibir recordatorios de tus hábitos, alertas de exámenes y motivación diaria.",
+  "getStarted": "¡Empezar ahora!",
+
+  "offlineTitle": "Sin conexión — Modo offline",
+  "offlineBody": "Mostrando datos del último acceso",
+
+  "welcomeStudy": "¡A estudiar! 💪",
+  "mot100": "¡{racha} días imparable! Nivel centurión 🚀",
+  "@mot100": {
+    "placeholders": {
+      "racha": { "type": "int" }
+    }
+  },
+  "mot30": "¡{racha} días de racha! Eres una leyenda 👑",
+  "@mot30": {
+    "placeholders": {
+      "racha": { "type": "int" }
+    }
+  },
+  "mot14": "¡Dos semanas seguidas! Hábito forjado ⚡",
+  "mot7": "¡Una semana entera! Estás en fuego 🔥",
+  "mot3": "¡Vas bien! No rompas la racha ahora 💪",
+  "mot1": "¡Buen comienzo! Mantén el ritmo ✨",
+  "mot0": "Hoy es un gran día para estudiar 📚",
+  "shieldReady": "🛡️ Escudo listo",
+  "shieldEmpty": "🛡️ Sin escudo",
+
+  "myProfile": "Mi perfil",
+  "currentStreak": "Racha actual",
+  "maxStreak": "Racha máxima",
+  "activeDays": "Días activos",
+  "viewAchievements": "Ver mis logros",
+  "streakHistory": "Historial de racha",
+  "academicProfiles": "Perfiles académicos",
+  "appearance": "Apariencia",
+  "themeDark": "🌙 Oscuro",
+  "themeSystem": "⚙️ Sistema",
+  "themeLight": "☀️ Claro",
+  "darkNow": "oscuro ahora",
+  "lightNow": "claro ahora",
+  "university": "Universidad",
+  "career": "Carrera",
+  "tapToSelect": "Toca para seleccionar",
+  "selectCareer": "Selecciona tu carrera",
+  "premiumActive": "EstudiApp Premium activo",
+  "unlockPremium": "Desbloquear Premium",
+  "validUntilDate": "Válido hasta {day}/{month}/{year}",
+  "@validUntilDate": {
+    "placeholders": {
+      "day": { "type": "int" },
+      "month": { "type": "int" },
+      "year": { "type": "int" }
+    }
+  },
+  "premiumFeaturesDesc": "PDF simulacros, grupos de estudio y más",
+  "statsSection": "ESTADÍSTICAS",
+  "habitsLabel": "Hábitos",
+  "todayLabel": "Hoy",
+  "examsLabel": "Exámenes",
+  "coursesLabel": "Cursos",
+  "passedLabel": "Aprobados",
+  "achievementsLabel": "Logros",
+  "notSpecified": "No especificado",
+  "languageLabel": "Idioma",
+  "langSpanish": "🇪🇸 Español",
+  "langEnglish": "🇺🇸 English",
+
+  "premiumTitle": "EstudiApp Premium",
+  "premiumSlogan": "Todo el poder del aprendizaje, sin límites",
+  "premiumIncludes": "QUÉ INCLUYE PREMIUM",
+  "choosePlan": "ELIGE TU PLAN",
+  "recommended": "RECOMENDADO",
+  "monthlyLabel": "MENSUAL",
+  "perYear": "por año",
+  "perMonth": "por mes",
+  "save45pct": "AHORRAS 45%",
+  "tryFree": "Probar 7 días gratis",
+  "tryFreeSubtitle": "Sin tarjeta · Solo una vez por cuenta",
+  "subscribeBtn": "Suscribirse — {price}/{period}",
+  "@subscribeBtn": {
+    "placeholders": {
+      "price": { "type": "String" },
+      "period": { "type": "String" }
+    }
+  },
+  "notAvailable": "No disponible en este dispositivo",
+  "restorePurchase": "Restaurar compra anterior",
+  "securePayment": "Pago seguro a través de Google Play · Cancela cuando quieras",
+  "premiumSuccess": "¡Premium activado con éxito!",
+  "paymentPending": "Pago pendiente de confirmación bancaria...",
+  "paymentError": "Error en el pago: {message}",
+  "@paymentError": {
+    "placeholders": {
+      "message": { "type": "String" }
+    }
+  },
+  "trialSuccess": "¡7 días Premium activados! Disfruta sin límites 🎉",
+  "trialUsed": "Ya usaste el período de prueba gratuito.",
+  "alreadyPremium": "¡Ya tienes Premium activo!",
+  "billingAnnual": "Cobro anual vía Google Play",
+  "billingMonthly": "Cobro mensual vía Google Play",
+  "activeUntilDate": "✓ Activo hasta {day}/{month}/{year}",
+  "@activeUntilDate": {
+    "placeholders": {
+      "day": { "type": "int" },
+      "month": { "type": "int" },
+      "year": { "type": "int" }
+    }
+  },
+  "fromPrice": "Desde {price}/mes · Cancela cuando quieras",
+  "@fromPrice": {
+    "placeholders": {
+      "price": { "type": "String" }
+    }
+  },
+  "compFree": "Gratis",
+  "compPremium": "Premium",
+  "compAI": "Asistente IA",
+  "comp5day": "5/día",
+  "compUnlimited": "Ilimitado",
+  "compFlashcards": "Flashcards SRS",
+  "compSimulacros": "Simulacros",
+  "comp5questions": "5 preguntas",
+  "compPDF": "PDF a Simulacro",
+  "compGroups": "Grupos de estudio",
+  "compTeacher": "Panel Docente",
+  "compNoAds": "Sin anuncios",
+  "b1Title": "Panel de Docente",
+  "b1Desc": "Crea tu academia, agrega alumnos y gestiona exámenes",
+  "b2Title": "PDF a Simulacro",
+  "b2Desc": "Sube exámenes reales en PDF y la IA los convierte a tests interactivos",
+  "b3Title": "Grupos de Estudio",
+  "b3Desc": "Estudia en tiempo real con tus compañeros",
+  "b4Title": "Notificaciones Inteligentes",
+  "b4Desc": "La IA programa tus recordatorios según tus exámenes y racha",
+  "b5Title": "IA sin límites",
+  "b5Desc": "Genera contenido, flashcards y documentos sin restricciones",
+  "b6Title": "Simulacros de Admisión",
+  "b6Desc": "Acceso a todos los países y tipos de examen de admisión",
+
+  "myHabits": "Mis habitos",
+  "newHabit": "Nuevo habito",
+  "editHabit": "Editar habito",
+  "habitName": "Nombre del habito",
+  "selectTime": "Seleccionar hora",
+  "frequency": "Frecuencia:",
+  "iconPickerLabel": "Icono:",
+  "noHabits": "No tienes habitos",
+  "tapPlusToAdd": "Toca + para agregar uno",
+  "addHabitBtn": "Agregar habito",
+  "iconStudy": "Estudio",
+  "iconWater": "Agua",
+  "iconExercise": "Ejercicio",
+  "iconNotes": "Apuntes",
+  "iconSleep": "Dormir",
+  "iconEat": "Comer",
+  "iconMusic": "Musica",
+  "iconMeditation": "Meditacion",
+  "freqDaily": "Diario",
+  "freqMon": "Lun",
+  "freqTue": "Mar",
+  "freqWed": "Mie",
+  "freqThu": "Jue",
+  "freqFri": "Vie",
+  "freqSat": "Sab",
+  "freqSun": "Dom",
+
+  "myExams": "Mis exámenes",
+  "newExam": "Nuevo examen",
+  "editExam": "Editar examen",
+  "courseNameLabel": "Nombre del curso",
+  "selectExamTime": "Seleccionar hora del examen",
+  "examNotesLabel": "Notas del examen (temas, apuntes...)",
+  "notifAlert": "Recibirás alertas 2 días antes, 1 día antes y el mismo día del examen",
+  "addExamBtn": "Agregar examen",
+  "examCompleted": "¡Examen completado! 🎓",
+  "scoreLabel": "Nota: {score} / 20",
+  "@scoreLabel": {
+    "placeholders": {
+      "score": { "type": "int" }
+    }
+  },
+  "approved": "¡Aprobado! 🎉",
+  "notApproved": "No aprobado 💪",
+  "approvedShort": "¡Aprobado!",
+  "notApprovedShort": "No aprobado",
+  "notesLabel": "Notas:",
+  "noNotes": "Sin notas",
+  "exportCalendar": "Exportar a Calendar",
+  "exportedN": "{count} examen(es) exportado(s) a Google Calendar",
+  "@exportedN": {
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  },
+  "noExportsMsg": "No se exportaron examenes (verifica permisos o si hay proximos)",
+  "calendarError": "Error al conectar con Google Calendar",
+  "showCompleted": "Completados",
+
+  "pomodoroTitle": "Pomodoro",
+  "breakSession": "☕ Tiempo de descanso",
+  "studySession": "📚 Tiempo de estudio",
+  "sessionsToday": "sesiones hoy",
+  "pomCoinSnack": "🪙 +10 monedas por completar sesión",
+
+  "missionsTitle": "Misiones",
+  "dailyMissions": "MISIONES DIARIAS",
+  "dailyRenewal": "Se renuevan cada día",
+  "weeklyMissions": "MISIONES SEMANALES",
+  "weeklyRenewal": "Se renuevan cada lunes",
+  "levelTitle": "Nivel {level} — {name}",
+  "@levelTitle": {
+    "placeholders": {
+      "level": { "type": "int" },
+      "name": { "type": "String" }
+    }
+  },
+  "xpProgress": "{xpCurrent} / {xpNext} XP",
+  "@xpProgress": {
+    "placeholders": {
+      "xpCurrent": { "type": "int" },
+      "xpNext": { "type": "int" }
+    }
+  },
+  "howToEarnXP": "Cómo ganar XP",
+  "tipDailyMission": "Completar misiones diarias",
+  "tipWeeklyMission": "Completar misiones semanales",
+  "tipDailyLogin": "Recompensa de inicio diario",
+  "claimBtn": "Reclamar",
+
+  "storeTitle": "Tienda",
+  "storeSubtitle": "Canjea tus monedas por recompensas exclusivas",
+  "howEarnCoins": "¿Cómo ganar 🪙?",
+  "insufficientCoins": "🪙 Monedas insuficientes",
+  "itemActivated": "✅ {name} activado",
+  "@itemActivated": {
+    "placeholders": {
+      "name": { "type": "String" }
+    }
+  },
+  "itemShieldTitle": "Escudo Extra",
+  "itemShieldDesc": "Protege tu racha un día adicional sin perderla",
+  "itemBoostTitle": "Boost de Racha x2",
+  "itemBoostDesc": "Duplica las monedas de racha diaria durante 24 horas",
+  "itemThemeTitle": "Tema Oscuro Premium",
+  "itemThemeDesc": "Activa el tema oscuro especial de la app",
+  "earnPomodoro": "Completar sesión Pomodoro",
+  "earnSimulacro": "Completar un simulacro",
+  "earnPerfectSim": "Sacar puntaje perfecto en simulacro",
+  "earnDailyStreak": "Mantener racha diaria",
+  "earnIA": "Usar herramienta de IA",
+  "earnDailyReward": "Recompensa diaria al abrir la app",
+
+  "achievementsTitle": "Mis logros",
+  "obtainedLabel": "Obtenidos",
+  "pendingLabel": "Por obtener",
+  "progressLabel": "Progreso",
+  "percentComplete": "{pct}% completado",
+  "@percentComplete": {
+    "placeholders": {
+      "pct": { "type": "int" }
+    }
+  },
+  "achievementUnlock": "¡Desbloqueé \"{title}\" en EstudiApp! 📚",
+  "@achievementUnlock": {
+    "placeholders": {
+      "title": { "type": "String" }
+    }
+  },
+  "achPrimerHabitoT": "Primer paso",
+  "achPrimerHabitoD": "Completa tu primer hábito",
+  "achRacha3T": "En llamas",
+  "achRacha3D": "Mantén una racha de 3 días",
+  "achRacha7T": "Imparable",
+  "achRacha7D": "Mantén una racha de 7 días",
+  "achRacha14T": "Flujo constante",
+  "achRacha14D": "Mantén una racha de 14 días",
+  "achRacha30T": "Leyenda",
+  "achRacha30D": "Mantén una racha de 30 días",
+  "achRacha100T": "Centurión",
+  "achRacha100D": "Mantén una racha de 100 días",
+  "achPrimerExamenT": "Estudiante",
+  "achPrimerExamenD": "Agrega tu primer examen",
+  "achExamenCompletadoT": "Aprobado",
+  "achExamenCompletadoD": "Completa tu primer examen",
+  "achCincoHabitosT": "Disciplinado",
+  "achCincoHabitosD": "Agrega 5 hábitos",
+  "achPomodoro1T": "Enfocado",
+  "achPomodoro1D": "Completa tu primera sesión Pomodoro",
+  "achIa1T": "IA Master",
+  "achIa1D": "Usa la IA para estudiar por primera vez",
+  "achIa50T": "Experto IA",
+  "achIa50D": "Realiza 50 búsquedas con la IA",
+  "achSimulacros10T": "Examinador",
+  "achSimulacros10D": "Completa 10 simulacros",
+  "achPrimerSimulacroT": "Primer simulacro",
+  "achPrimerSimulacroD": "Completa tu primer simulacro",
+  "achNotaPerfectaT": "Nota perfecta",
+  "achNotaPerfectaD": "Obtén 20/20 en un examen",
+  "achHabitosDiaT": "Constante",
+  "achHabitosDiaD": "Completa todos tus hábitos en un día",
+
+  "admisionTitle": "Simulacros de Admisión",
+  "admisionSubtitle": "Practica con preguntas al estilo de los exámenes reales",
+  "countryLabel": "PAÍS",
+  "examLabel": "EXAMEN",
+  "questionsLabel": "CANTIDAD DE PREGUNTAS",
+  "recentHistory": "HISTORIAL RECIENTE",
+  "noSimulacros": "Aún no has hecho simulacros",
+  "historyError": "Error al cargar historial",
+  "correctOf": "{correct}/{total} correctas",
+  "@correctOf": {
+    "placeholders": {
+      "correct": { "type": "int" },
+      "total": { "type": "int" }
+    }
+  },
+  "questionCounter": "Pregunta {current} / {total}",
+  "@questionCounter": {
+    "placeholders": {
+      "current": { "type": "int" },
+      "total": { "type": "int" }
+    }
+  },
+  "reviewAnswers": "REVISIÓN DE RESPUESTAS",
+  "yourAnswer": "Tu respuesta:",
+  "correctAnswer": "Correcta:",
+  "resultExcellent": "¡Excelente puntaje! 🎉",
+  "resultGood": "¡Bien! Sigue practicando 💪",
+  "resultTryMore": "No te rindas, practica más",
+  "anotherSim": "Otro simulacro",
+  "startSim": "Iniciar Simulacro — {country}",
+  "@startSim": {
+    "placeholders": {
+      "country": { "type": "String" }
+    }
+  },
+  "generatingAI": "Generando simulacro con IA...",
+  "simError": "Error al generar el simulacro. Intenta de nuevo.",
+  "previousQuestion": "Anterior",
+  "seeResult": "Ver resultado",
+  "simPremiumTitle": "🔒 Función Premium",
+  "simPremiumBody": "Más de 5 simulacros al día requiere Premium.",
+  "simPremiumBtn": "Ver Premium",
+
+  "iaTitle": "Estudiar con IA",
+  "iaSearchesExhausted": "Agotadas",
+  "iaSearchesToday": "{count} hoy",
+  "@iaSearchesToday": {
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  },
+  "iaLimitTitle": "Sin búsquedas disponibles",
+  "iaLimitBody": "Usaste tus 5 búsquedas gratuitas de hoy.\nVuelve mañana o gana más ahora mismo.",
+  "iaWatchAdBtn": "Ver anuncio  (+3 búsquedas gratis)",
+  "iaPremiumBtn": "Hacerse Premium — búsquedas ilimitadas",
+  "iaAdLoading": "Anuncio cargando, intenta de nuevo en un momento",
+  "iaAdNotAvail": "Anuncio no disponible. Intenta en un momento.",
+  "iaGot3": "¡Ganaste 3 búsquedas extra! 🎉",
+  "iaGot2Bonus": "¡Ganaste 2 búsquedas extra por completar el simulacro! 🎯",
+  "iaClearChat": "Limpiar chat",
+  "iaModeStudy": "Estudiar",
+  "iaModeScanner": "Scanner",
+  "iaModeDocs": "Docs",
+  "iaModeSim": "Simulacro",
+  "iaModeTools": "Herramientas",
+  "iaScanStep1": "PASO 1 — ¿Qué necesitas?",
+  "iaScanHint": "Ej: Resúmeme esto, Resuelve los ejercicios...",
+  "iaScanStep2": "PASO 2 — Carga archivo o envía solo texto",
+  "iaScanCamera": "Cámara",
+  "iaScanGallery": "Galería",
+  "iaScanSendText": "Enviar solo texto (sin imagen)",
+  "iaAnalyzing": "Analizando...",
+  "iaAIResponse": "Respuesta de la IA",
+  "iaSavePDF": "Guardar PDF",
+  "iaNewQuery": "Nueva consulta",
+
+  "notifHabitTitle": "⏰ Hora de tu habito!",
+  "notifHabitBody": "Es momento de: {name}",
+  "@notifHabitBody": {
+    "placeholders": {
+      "name": { "type": "String" }
+    }
+  },
+  "notifExamTodayTitle": "📚 Hoy es tu examen!",
+  "notifExamTodayBody": "Tu examen de {course} empieza hoy. Mucho exito!",
+  "@notifExamTodayBody": {
+    "placeholders": {
+      "course": { "type": "String" }
+    }
+  },
+  "notifExam2DaysTitle": "⚠️ Examen en 2 dias!",
+  "notifExam2DaysBody": "Tu examen de {course} es pasado manana. Estudia hoy!",
+  "@notifExam2DaysBody": {
+    "placeholders": {
+      "course": { "type": "String" }
+    }
+  },
+  "notifExam1DayTitle": "🚨 Examen manana!",
+  "notifExam1DayBody": "Tu examen de {course} es manana. Repasa bien hoy!",
+  "@notifExam1DayBody": {
+    "placeholders": {
+      "course": { "type": "String" }
+    }
+  },
+  "notifMissionsTitle": "🎯 Misiones del día",
+  "notifMissionsPending": "Tienes {count} {word} pendientes. ¡Gana monedas y XP!",
+  "@notifMissionsPending": {
+    "placeholders": {
+      "count": { "type": "int" },
+      "word": { "type": "String" }
+    }
+  },
+  "notifMissionsGeneral": "¡Completa tus misiones diarias y gana monedas y XP!",
+  "misionSingular": "misión",
+  "misionPlural": "misiones",
+  "notifStreakTitle": "🔥 ¡No pierdas tu racha de {days} días!",
+  "@notifStreakTitle": {
+    "placeholders": {
+      "days": { "type": "int" }
+    }
+  },
+  "notifStreakBody": "Completa aunque sea una actividad hoy para mantener la racha.",
+  "notifStudyTitle": "📚 Hora de estudiar",
+  "notifStudyBody": "Mantén el hábito: 20 minutos al día hacen la diferencia.",
+
+  "myCourses": "Mis cursos",
+  "todayShort": "Hoy",
+  "tomorrowShort": "Mañana",
+  "daysShort": "{n} días",
+  "@daysShort": {
+    "placeholders": {
+      "n": { "type": "int" }
+    }
+  },
+  "rewardCoins30days": "🪙 +{n} monedas — ¡Racha de 30 días!",
+  "@rewardCoins30days": {
+    "placeholders": {
+      "n": { "type": "int" }
+    }
+  },
+  "rewardCoinsWeekly": "🪙 +{n} monedas — ¡Racha semanal!",
+  "@rewardCoinsWeekly": {
+    "placeholders": {
+      "n": { "type": "int" }
+    }
+  },
+  "rewardCoinsDaily": "🪙 +{n} monedas de recompensa diaria",
+  "@rewardCoinsDaily": {
+    "placeholders": {
+      "n": { "type": "int" }
+    }
+  },
+  "adNotNow": "Anuncio no disponible en este momento"
+}

@@ -8,7 +8,9 @@ import 'tema_service.dart';
 import 'app_colors.dart';
 import 'services/carrera_service.dart';
 import 'services/premium_service.dart';
+import 'services/idioma_service.dart';
 import 'premium_page.dart';
+import 'l10n_helper.dart';
 
 class PerfilPage extends StatefulWidget {
   const PerfilPage({super.key});
@@ -29,7 +31,7 @@ class _PerfilPageState extends State<PerfilPage> {
   @override
   void initState() {
     super.initState();
-    _cargarPerfil();
+    if (user != null) _cargarPerfil();
   }
 
   @override
@@ -65,13 +67,18 @@ class _PerfilPageState extends State<PerfilPage> {
 
   @override
   Widget build(BuildContext context) {
+    final uid = user?.uid;
+    if (uid == null) return const Scaffold(body: SizedBox.shrink());
+
+    final l10n = context.l10n;
+
     return Scaffold(
       backgroundColor: context.bgPrimary,
       appBar: AppBar(
         backgroundColor: context.bgPrimary,
         elevation: 0,
         title: Text(
-          'Mi perfil',
+          l10n.myProfile,
           style: TextStyle(color: context.textPrimary, fontWeight: FontWeight.bold),
         ),
         iconTheme: IconThemeData(color: context.textPrimary),
@@ -127,7 +134,7 @@ class _PerfilPageState extends State<PerfilPage> {
 
             // Racha banner
             StreamBuilder<DocumentSnapshot>(
-              stream: _db.collection('perfiles').doc(user!.uid).snapshots(),
+              stream: _db.collection('perfiles').doc(uid).snapshots(),
               builder: (context, perfilSnapshot) {
                 final racha = perfilSnapshot.data?.get('racha') ?? 0;
                 final rachaMaxima = perfilSnapshot.data?.get('rachaMaxima') ?? 0;
@@ -136,6 +143,7 @@ class _PerfilPageState extends State<PerfilPage> {
                   decoration: BoxDecoration(
                     gradient: AppC.streakGradient,
                     borderRadius: BorderRadius.circular(16),
+                    boxShadow: context.cardShadowStrong,
                   ),
                   child: Row(
                     children: [
@@ -149,8 +157,8 @@ class _PerfilPageState extends State<PerfilPage> {
                                     color: Colors.white,
                                     fontSize: 24,
                                     fontWeight: FontWeight.bold)),
-                            const Text('Racha actual',
-                                style: TextStyle(color: Colors.white54, fontSize: 11)),
+                            Text(l10n.currentStreak,
+                                style: const TextStyle(color: Colors.white54, fontSize: 11)),
                           ],
                         ),
                       ),
@@ -165,8 +173,8 @@ class _PerfilPageState extends State<PerfilPage> {
                                     color: AppC.gold,
                                     fontSize: 24,
                                     fontWeight: FontWeight.bold)),
-                            const Text('Racha máxima',
-                                style: TextStyle(color: Colors.white54, fontSize: 11)),
+                            Text(l10n.maxStreak,
+                                style: const TextStyle(color: Colors.white54, fontSize: 11)),
                           ],
                         ),
                       ),
@@ -174,7 +182,7 @@ class _PerfilPageState extends State<PerfilPage> {
                       StreamBuilder<QuerySnapshot>(
                         stream: _db
                             .collection('historial_habitos')
-                            .where('userId', isEqualTo: user!.uid)
+                            .where('userId', isEqualTo: uid)
                             .snapshots(),
                         builder: (context, histSnapshot) {
                           final diasEstudiados = histSnapshot.data?.docs
@@ -195,8 +203,8 @@ class _PerfilPageState extends State<PerfilPage> {
                                         color: AppC.teal,
                                         fontSize: 24,
                                         fontWeight: FontWeight.bold)),
-                                const Text('Días activos',
-                                    style: TextStyle(color: Colors.white54, fontSize: 11)),
+                                Text(l10n.activeDays,
+                                    style: const TextStyle(color: Colors.white54, fontSize: 11)),
                               ],
                             ),
                           );
@@ -213,7 +221,7 @@ class _PerfilPageState extends State<PerfilPage> {
             _navBtn(
               icon: Icons.emoji_events,
               color: AppC.gold,
-              label: 'Ver mis logros',
+              label: l10n.viewAchievements,
               onTap: () => Navigator.push(
                   context, MaterialPageRoute(builder: (_) => const LogrosPage())),
             ),
@@ -221,7 +229,7 @@ class _PerfilPageState extends State<PerfilPage> {
             _navBtn(
               icon: Icons.local_fire_department,
               color: AppC.red,
-              label: 'Historial de racha',
+              label: l10n.streakHistory,
               onTap: () => Navigator.push(
                   context, MaterialPageRoute(builder: (_) => const RachaHeatmapPage())),
             ),
@@ -229,27 +237,28 @@ class _PerfilPageState extends State<PerfilPage> {
             _navBtn(
               icon: Icons.swap_horiz,
               color: AppC.purple,
-              label: 'Perfiles académicos',
+              label: l10n.academicProfiles,
               onTap: () => Navigator.push(
                   context, MaterialPageRoute(builder: (_) => const PerfilesAcademicosPage())),
             ),
             const SizedBox(height: 10),
 
-            // Toggle de tema
-            _buildToggleTema(),
+            _buildToggleTema(l10n),
+            const SizedBox(height: 10),
+            _buildToggleIdioma(l10n),
             const SizedBox(height: 16),
 
-            _buildCarreraSelector(),
+            _buildCarreraSelector(l10n),
             const SizedBox(height: 12),
-            _buildCampo('Universidad', _universidadController, Icons.account_balance),
+            _buildCampo(l10n.university, _universidadController, Icons.account_balance, l10n),
             const SizedBox(height: 16),
-            _buildPremiumBanner(),
+            _buildPremiumBanner(l10n),
             const SizedBox(height: 12),
 
             // Estadísticas
             Align(
               alignment: Alignment.centerLeft,
-              child: Text('ESTADÍSTICAS',
+              child: Text(l10n.statsSection,
                   style: TextStyle(
                       color: context.textSecondary,
                       fontSize: 12,
@@ -258,7 +267,7 @@ class _PerfilPageState extends State<PerfilPage> {
             ),
             const SizedBox(height: 12),
             StreamBuilder<QuerySnapshot>(
-              stream: _db.collection('habitos').where('userId', isEqualTo: user!.uid).snapshots(),
+              stream: _db.collection('habitos').where('userId', isEqualTo: uid).snapshots(),
               builder: (context, habitosSnapshot) {
                 final totalHabitos = habitosSnapshot.data?.docs.length ?? 0;
                 final completados = habitosSnapshot.data?.docs
@@ -267,18 +276,18 @@ class _PerfilPageState extends State<PerfilPage> {
                     0;
                 return Row(
                   children: [
-                    _buildStat('Hábitos', '$totalHabitos', Icons.check_circle_outline),
+                    _buildStat(l10n.habitsLabel, '$totalHabitos', Icons.check_circle_outline),
                     const SizedBox(width: 12),
-                    _buildStat('Hoy', '$completados', Icons.check_circle, color: AppC.teal),
+                    _buildStat(l10n.todayLabel, '$completados', Icons.check_circle, color: AppC.teal),
                     const SizedBox(width: 12),
                     StreamBuilder<QuerySnapshot>(
                       stream: _db
                           .collection('examenes')
-                          .where('userId', isEqualTo: user!.uid)
+                          .where('userId', isEqualTo: uid)
                           .snapshots(),
                       builder: (context, examSnapshot) {
                         final totalExamenes = examSnapshot.data?.docs.length ?? 0;
-                        return _buildStat('Exámenes', '$totalExamenes', Icons.school,
+                        return _buildStat(l10n.examsLabel, '$totalExamenes', Icons.school,
                             color: AppC.orange);
                       },
                     ),
@@ -288,35 +297,35 @@ class _PerfilPageState extends State<PerfilPage> {
             ),
             const SizedBox(height: 12),
             StreamBuilder<QuerySnapshot>(
-              stream: _db.collection('cursos').where('userId', isEqualTo: user!.uid).snapshots(),
+              stream: _db.collection('cursos').where('userId', isEqualTo: uid).snapshots(),
               builder: (context, cursosSnapshot) {
                 final totalCursos = cursosSnapshot.data?.docs.length ?? 0;
                 return Row(
                   children: [
-                    _buildStat('Cursos', '$totalCursos', Icons.menu_book, color: AppC.blue),
+                    _buildStat(l10n.coursesLabel, '$totalCursos', Icons.menu_book, color: AppC.blue),
                     const SizedBox(width: 12),
                     StreamBuilder<QuerySnapshot>(
                       stream: _db
                           .collection('examenes')
-                          .where('userId', isEqualTo: user!.uid)
+                          .where('userId', isEqualTo: uid)
                           .where('completado', isEqualTo: true)
                           .snapshots(),
                       builder: (context, examCompSnapshot) {
                         final aprobados = examCompSnapshot.data?.docs.length ?? 0;
-                        return _buildStat('Aprobados', '$aprobados', Icons.emoji_events,
+                        return _buildStat(l10n.passedLabel, '$aprobados', Icons.emoji_events,
                             color: AppC.gold);
                       },
                     ),
                     const SizedBox(width: 12),
                     StreamBuilder<DocumentSnapshot>(
-                      stream: _db.collection('logros').doc(user!.uid).snapshots(),
+                      stream: _db.collection('logros').doc(uid).snapshots(),
                       builder: (context, logrosSnapshot) {
                         final logros = logrosSnapshot.data?.exists == true
                             ? List.from(
                                     ((logrosSnapshot.data!.data() as Map?) ?? {})['obtenidos'] ?? [])
                                 .length
                             : 0;
-                        return _buildStat('Logros', '$logros/10', Icons.star,
+                        return _buildStat(l10n.achievementsLabel, '$logros/10', Icons.star,
                             color: AppC.orange);
                       },
                     ),
@@ -348,6 +357,7 @@ class _PerfilPageState extends State<PerfilPage> {
           color: context.bgCard,
           borderRadius: BorderRadius.circular(14),
           border: Border.all(color: color.withOpacity(0.3)),
+          boxShadow: context.cardShadow,
         ),
         child: Row(
           children: [
@@ -363,7 +373,7 @@ class _PerfilPageState extends State<PerfilPage> {
     );
   }
 
-  Widget _buildToggleTema() {
+  Widget _buildToggleTema(AppLocalizations l10n) {
     return ValueListenableBuilder<ThemeMode>(
       valueListenable: TemaService.modoNotifier,
       builder: (ctx, modo, _) {
@@ -383,7 +393,7 @@ class _PerfilPageState extends State<PerfilPage> {
                 children: [
                   Icon(Icons.palette, color: AppC.purple, size: 20),
                   const SizedBox(width: 10),
-                  Text('Apariencia',
+                  Text(l10n.appearance,
                       style: TextStyle(
                           color: context.textPrimary,
                           fontWeight: FontWeight.w600)),
@@ -392,16 +402,55 @@ class _PerfilPageState extends State<PerfilPage> {
               const SizedBox(height: 12),
               Row(
                 children: [
-                  _botonTema('🌙 Oscuro', ThemeMode.dark, modo),
+                  _botonTema(l10n.themeDark, ThemeMode.dark, modo),
                   const SizedBox(width: 8),
                   _botonTema(
-                    '⚙️ Sistema',
+                    l10n.themeSystem,
                     ThemeMode.system,
                     modo,
-                    subtitulo: sistemaOscuro ? 'oscuro ahora' : 'claro ahora',
+                    subtitulo: sistemaOscuro ? l10n.darkNow : l10n.lightNow,
                   ),
                   const SizedBox(width: 8),
-                  _botonTema('☀️ Claro', ThemeMode.light, modo),
+                  _botonTema(l10n.themeLight, ThemeMode.light, modo),
+                ],
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildToggleIdioma(AppLocalizations l10n) {
+    return ValueListenableBuilder<Locale>(
+      valueListenable: IdiomaService.localeNotifier,
+      builder: (ctx, locale, _) {
+        return Container(
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            color: context.bgCard,
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: context.borderPrimary),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Icon(Icons.language, color: AppC.teal, size: 20),
+                  const SizedBox(width: 10),
+                  Text(l10n.languageLabel,
+                      style: TextStyle(
+                          color: context.textPrimary,
+                          fontWeight: FontWeight.w600)),
+                ],
+              ),
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  _botonIdioma(l10n.langSpanish, 'es', locale.languageCode),
+                  const SizedBox(width: 8),
+                  _botonIdioma(l10n.langEnglish, 'en', locale.languageCode),
                 ],
               ),
             ],
@@ -458,7 +507,37 @@ class _PerfilPageState extends State<PerfilPage> {
     );
   }
 
-  Widget _buildCampo(String label, TextEditingController controller, IconData icono) {
+  Widget _botonIdioma(String label, String codigo, String actual) {
+    final activo = codigo == actual;
+    return Expanded(
+      child: GestureDetector(
+        onTap: () => IdiomaService.setIdioma(codigo),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          padding: const EdgeInsets.symmetric(vertical: 10),
+          decoration: BoxDecoration(
+            color: activo ? AppC.teal.withOpacity(0.2) : Colors.transparent,
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(
+              color: activo ? AppC.teal : context.borderSecondary,
+              width: activo ? 1.5 : 1,
+            ),
+          ),
+          child: Text(
+            label,
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              color: activo ? AppC.teal : context.textSecondary,
+              fontSize: 12,
+              fontWeight: activo ? FontWeight.bold : FontWeight.normal,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCampo(String label, TextEditingController controller, IconData icono, AppLocalizations l10n) {
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
@@ -487,7 +566,7 @@ class _PerfilPageState extends State<PerfilPage> {
                       Text(label,
                           style: TextStyle(color: context.textSecondary, fontSize: 11)),
                       Text(
-                        controller.text.isEmpty ? 'No especificado' : controller.text,
+                        controller.text.isEmpty ? l10n.notSpecified : controller.text,
                         style: TextStyle(color: context.textPrimary, fontSize: 14),
                       ),
                     ],
@@ -498,7 +577,7 @@ class _PerfilPageState extends State<PerfilPage> {
     );
   }
 
-  Widget _buildCarreraSelector() {
+  Widget _buildCarreraSelector(AppLocalizations l10n) {
     final carreraActual = _carreraController.text;
     return GestureDetector(
       onTap: () async {
@@ -523,10 +602,10 @@ class _PerfilPageState extends State<PerfilPage> {
                         color: Colors.white24,
                         borderRadius: BorderRadius.circular(2))),
                 const SizedBox(height: 16),
-                const Padding(
-                  padding: EdgeInsets.symmetric(horizontal: 20),
-                  child: Text('Selecciona tu carrera',
-                      style: TextStyle(
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                  child: Text(l10n.selectCareer,
+                      style: const TextStyle(
                           color: Colors.white,
                           fontSize: 17,
                           fontWeight: FontWeight.bold)),
@@ -584,7 +663,6 @@ class _PerfilPageState extends State<PerfilPage> {
         );
         if (seleccionada != null) {
           setState(() => _carreraController.text = seleccionada);
-          // Auto-save carrera immediately so AI context updates at once
           await _db.collection('perfiles').doc(user!.uid).set(
               {'carrera': seleccionada}, SetOptions(merge: true));
         }
@@ -604,12 +682,12 @@ class _PerfilPageState extends State<PerfilPage> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('Carrera',
+                  Text(l10n.career,
                       style: TextStyle(
                           color: context.textSecondary, fontSize: 11)),
                   const SizedBox(height: 2),
                   Text(
-                    carreraActual.isEmpty ? 'Toca para seleccionar' : carreraActual,
+                    carreraActual.isEmpty ? l10n.tapToSelect : carreraActual,
                     style: TextStyle(
                         color: carreraActual.isEmpty
                             ? context.textTertiary
@@ -630,7 +708,7 @@ class _PerfilPageState extends State<PerfilPage> {
     );
   }
 
-  Widget _buildPremiumBanner() {
+  Widget _buildPremiumBanner(AppLocalizations l10n) {
     return GestureDetector(
       onTap: () => Navigator.push(
           context, MaterialPageRoute(builder: (_) => const PremiumPage())),
@@ -663,7 +741,7 @@ class _PerfilPageState extends State<PerfilPage> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    _isPremium ? 'EstudiApp Premium activo' : 'Desbloquear Premium',
+                    _isPremium ? l10n.premiumActive : l10n.unlockPremium,
                     style: TextStyle(
                         color: _isPremium
                             ? const Color(0xFFFFD700)
@@ -673,8 +751,12 @@ class _PerfilPageState extends State<PerfilPage> {
                   ),
                   Text(
                     _isPremium && _premiumExpiry != null
-                        ? 'Válido hasta ${_premiumExpiry!.day}/${_premiumExpiry!.month}/${_premiumExpiry!.year}'
-                        : 'PDF simulacros, grupos de estudio y más',
+                        ? l10n.validUntilDate(
+                            _premiumExpiry!.day,
+                            _premiumExpiry!.month,
+                            _premiumExpiry!.year,
+                          )
+                        : l10n.premiumFeaturesDesc,
                     style: const TextStyle(
                         color: Colors.white54, fontSize: 11),
                   ),
@@ -697,6 +779,7 @@ class _PerfilPageState extends State<PerfilPage> {
           color: context.bgCard,
           borderRadius: BorderRadius.circular(12),
           border: Border.all(color: context.borderPrimary),
+          boxShadow: context.cardShadow,
         ),
         child: Column(
           children: [

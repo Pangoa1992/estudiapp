@@ -1,5 +1,6 @@
 import 'dart:ui' show PlatformDispatcher;
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -26,6 +27,7 @@ import 'logros_page.dart';
 import 'sin_conexion_page.dart';
 import 'admin_page.dart';
 import 'racha_heatmap_page.dart';
+import 'app_colors.dart';
 import 'tema_service.dart';
 import 'cache_service.dart';
 import 'widget_service.dart';
@@ -48,8 +50,12 @@ import 'services/fcm_service.dart';
 import 'services/monedas_service.dart';
 import 'services/misiones_service.dart';
 import 'services/niveles_service.dart';
+import 'services/resena_service.dart';
+import 'models/mision_model.dart';
 import 'misiones_page.dart';
 import 'bienvenida_dialog.dart';
+import 'l10n_helper.dart';
+import 'services/idioma_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -62,10 +68,10 @@ void main() async {
     return true;
   };
 
-  // Caché offline Firestore — 50 MB
+  // Caché offline Firestore — cacheSizeBytes removido: en cloud_firestore 6.x
+  // pasarlo por Pigeon lanza PigeonException en algunos Android (crash #1 v1.8.5).
   FirebaseFirestore.instance.settings = const Settings(
     persistenceEnabled: true,
-    cacheSizeBytes: 52428800,
   );
 
   // Inicializar servicios en paralelo para reducir el tiempo de arranque
@@ -73,6 +79,7 @@ void main() async {
     ServicioNotificaciones.inicializar(),
     TemaService.cargar(),
     CacheService.inicializar(),
+    IdiomaService.cargar(),
   ]);
   unawaited(MobileAds.instance.initialize());
   runApp(const MyApp());
@@ -119,13 +126,29 @@ class MyApp extends StatelessWidget {
     return ValueListenableBuilder<ThemeMode>(
       valueListenable: TemaService.modoNotifier,
       builder: (context, modo, _) {
-        return MaterialApp(
-          title: 'EstudiApp',
-          debugShowCheckedModeBanner: false,
-          theme: _lightTheme,
-          darkTheme: _darkTheme,
-          themeMode: modo,
-          home: _paginaInicial(),
+        return ValueListenableBuilder<Locale>(
+          valueListenable: IdiomaService.localeNotifier,
+          builder: (context, locale, _) {
+            return MaterialApp(
+              title: 'EstudiApp',
+              debugShowCheckedModeBanner: false,
+              theme: _lightTheme,
+              darkTheme: _darkTheme,
+              themeMode: modo,
+              locale: locale,
+              localizationsDelegates: const [
+                AppLocalizations.delegate,
+                GlobalMaterialLocalizations.delegate,
+                GlobalWidgetsLocalizations.delegate,
+                GlobalCupertinoLocalizations.delegate,
+              ],
+              supportedLocales: const [
+                Locale('es'),
+                Locale('en'),
+              ],
+              home: _paginaInicial(),
+            );
+          },
         );
       },
     );
@@ -194,13 +217,16 @@ class _HomePageState extends State<HomePage> {
   void initState() {
     super.initState();
     RachaService().verificarRacha();
-    unawaited(FcmService.inicializar()); // push notifications (no bloquea arranque)
-    unawaited(MisionesService.generarMisionesSiNecesario());
+    unawaited(FcmService.inicializar());
+    unawaited(ResenaService.registrarPrimeraApertura());
+    unawaited(_iniciarMisiones());
     _activarRecordatorios();
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       await _mostrarAvisoBateria();
       _mostrarBienvenida();
       _mostrarRecompensaDiaria();
+      unawaited(ResenaService.checkPorDiasDeUso());
+      unawaited(ResenaService.checkPorSesiones());
     });
     _bannerAd = BannerAd(
       adUnitId: 'ca-app-pub-6530298594670805/7501861973',
@@ -225,6 +251,13 @@ class _HomePageState extends State<HomePage> {
     super.dispose();
   }
 
+  Future<void> _iniciarMisiones() async {
+    await MisionesService.generarMisionesSiNecesario();
+    final (diarias, _) = await MisionesService.obtenerMisiones();
+    final pendientes = diarias.where((Mision m) => !m.reclamada).length;
+    await NotificacionesService.programarRecordatorioMisiones(pendientes);
+  }
+
   Future<void> _mostrarAvisoBateria() async {
     final prefs = await SharedPreferences.getInstance();
     if ((prefs.getBool('aviso_bateria_visto') ?? false) || !mounted) return;
@@ -234,17 +267,16 @@ class _HomePageState extends State<HomePage> {
       builder: (context) => AlertDialog(
         backgroundColor: const Color(0xFF1E1E2A),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: const Row(children: [
-          Text('🔔', style: TextStyle(fontSize: 24)),
-          SizedBox(width: 8),
-          Text('Activa las notificaciones',
-              style: TextStyle(
+        title: Row(children: [
+          const Text('🔔', style: TextStyle(fontSize: 24)),
+          const SizedBox(width: 8),
+          Text(context.l10n.batteryTitle,
+              style: const TextStyle(
                   color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
         ]),
-        content: const Text(
-          'Para recibir recordatorios desactiva la optimización de batería para EstudiApp.\n\n'
-          'Ajustes → Apps → EstudiApp → Desactiva "Pausar actividades no utilizadas"',
-          style: TextStyle(color: Colors.white54, fontSize: 13, height: 1.6),
+        content: Text(
+          context.l10n.batteryBody,
+          style: const TextStyle(color: Colors.white54, fontSize: 13, height: 1.6),
         ),
         actions: [
           TextButton(
@@ -252,7 +284,7 @@ class _HomePageState extends State<HomePage> {
               await prefs.setBool('aviso_bateria_visto', true);
               if (context.mounted) Navigator.pop(context);
             },
-            child: const Text('Ahora no', style: TextStyle(color: Colors.white38)),
+            child: Text(context.l10n.batteryNotNow, style: const TextStyle(color: Colors.white38)),
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
@@ -269,8 +301,8 @@ class _HomePageState extends State<HomePage> {
                 ).launch();
               }
             },
-            child: const Text('Ir a Ajustes',
-                style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+            child: Text(context.l10n.batterySettings,
+                style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
           ),
         ],
       ),
@@ -299,11 +331,12 @@ class _HomePageState extends State<HomePage> {
   Future<void> _mostrarRecompensaDiaria() async {
     final monedas = await MonedasService.recompensaDiaria();
     if (monedas <= 0 || !mounted) return;
+    final l10n = context.l10n;
     final msg = monedas >= 200
-        ? '🪙 +$monedas monedas — ¡Racha de 30 días!'
+        ? l10n.rewardCoins30days(monedas)
         : monedas >= 50
-            ? '🪙 +$monedas monedas — ¡Racha semanal!'
-            : '🪙 +$monedas monedas de recompensa diaria';
+            ? l10n.rewardCoinsWeekly(monedas)
+            : l10n.rewardCoinsDaily(monedas);
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(msg, style: const TextStyle(fontWeight: FontWeight.w600)),
@@ -373,11 +406,11 @@ class _HomePageState extends State<HomePage> {
 
   String get _nombreUsuario => (user?.displayName ?? 'Estudiante').split(' ').first;
 
-  String get _saludo {
+  String _saludo(BuildContext context) {
     final h = DateTime.now().hour;
-    if (h < 12) return 'Buenos días,';
-    if (h < 18) return 'Buenas tardes,';
-    return 'Buenas noches,';
+    if (h < 12) return context.l10n.greetingMorning;
+    if (h < 18) return context.l10n.greetingAfternoon;
+    return context.l10n.greetingEvening;
   }
 
   void _cerrarSesion() async {
@@ -391,7 +424,7 @@ class _HomePageState extends State<HomePage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF0F0F14),
+      backgroundColor: context.bgPrimary,
       bottomNavigationBar: _bannerAdReady
           ? SizedBox(
               height: _bannerAd!.size.height.toDouble(),
@@ -401,7 +434,7 @@ class _HomePageState extends State<HomePage> {
           : _bannerAdFailed
               ? Container(
                   height: 32,
-                  color: const Color(0xFF0F0F14),
+                  color: context.bgPrimary,
                   alignment: Alignment.center,
                   child: const Text(
                     'Anuncio no disponible en este momento',
@@ -409,25 +442,28 @@ class _HomePageState extends State<HomePage> {
                   ),
                 )
               : null,
-      body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(20),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _buildHeader(),
-              const SizedBox(height: 20),
-              _buildStreakBanner(),
-              const SizedBox(height: 12),
-              _buildRecordatorioInteligente(),
-              _buildBotonIA(),
-              const SizedBox(height: 24),
-              _buildSeccionExamenes(),
-              const SizedBox(height: 24),
-              _buildSeccionHabitos(),
-              const SizedBox(height: 16),
-              _buildBotones(),
-            ],
+      body: Container(
+        decoration: BoxDecoration(gradient: context.bgGradient),
+        child: SafeArea(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(20),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _buildHeader(),
+                const SizedBox(height: 20),
+                _buildStreakBanner(),
+                const SizedBox(height: 12),
+                _buildRecordatorioInteligente(),
+                _buildBotonIA(),
+                const SizedBox(height: 24),
+                _buildSeccionExamenes(),
+                const SizedBox(height: 24),
+                _buildSeccionHabitos(),
+                const SizedBox(height: 16),
+                _buildBotones(),
+              ],
+            ),
           ),
         ),
       ),
@@ -443,11 +479,11 @@ class _HomePageState extends State<HomePage> {
         Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(_saludo,
-                style: const TextStyle(color: Colors.white54, fontSize: 13)),
+            Text(_saludo(context),
+                style: TextStyle(color: context.textSecondary, fontSize: 13)),
             Text('$_nombreUsuario 👋',
-                style: const TextStyle(
-                    color: Colors.white,
+                style: TextStyle(
+                    color: context.textPrimary,
                     fontSize: 24,
                     fontWeight: FontWeight.bold)),
           ],
@@ -460,13 +496,13 @@ class _HomePageState extends State<HomePage> {
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                 decoration: BoxDecoration(
-                  color: const Color(0xFF1E1E2A),
+                  color: context.bgCard,
                   borderRadius: BorderRadius.circular(10),
                   border: Border.all(
                       color: const Color(0xFF7C6AF7).withOpacity(0.5)),
                 ),
-                child: const Text('Mis cursos',
-                    style: TextStyle(
+                child: Text(context.l10n.myCourses,
+                    style: const TextStyle(
                         color: Color(0xFF7C6AF7),
                         fontSize: 12,
                         fontWeight: FontWeight.w600)),
@@ -632,6 +668,7 @@ class _HomePageState extends State<HomePage> {
                     colors: [Color(0xFF2A1F5E), Color(0xFF1F3A35)]),
                 borderRadius: BorderRadius.circular(16),
                 border: Border.all(color: const Color(0xFF3D2FA0)),
+                boxShadow: context.cardShadowStrong,
               ),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -640,7 +677,7 @@ class _HomePageState extends State<HomePage> {
                     const Text('🔥', style: TextStyle(fontSize: 32)),
                     const SizedBox(width: 12),
                     Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                      Text('$racha días de racha',
+                      Text(context.l10n.streakDays((racha as num).toInt()),
                           style: const TextStyle(
                               color: Colors.white,
                               fontSize: 20,
@@ -653,7 +690,7 @@ class _HomePageState extends State<HomePage> {
                         ),
                         const SizedBox(width: 4),
                         Text(
-                          escudos > 0 ? 'Escudo disponible' : 'Sin escudo esta semana',
+                          escudos > 0 ? context.l10n.shieldAvailable : context.l10n.shieldNone,
                           style: TextStyle(
                             color: escudos > 0 ? const Color(0xFF5DE0C5) : Colors.white38,
                             fontSize: 11,
@@ -696,17 +733,17 @@ class _HomePageState extends State<HomePage> {
                 width: double.infinity,
                 padding: const EdgeInsets.symmetric(vertical: 14),
                 decoration: BoxDecoration(
-                  gradient: const LinearGradient(
-                      colors: [Color(0xFF7C6AF7), Color(0xFF5A4ED4)]),
+                  gradient: AppC.purpleGradient,
                   borderRadius: BorderRadius.circular(14),
+                  boxShadow: context.cardShadowStrong,
                 ),
-                child: const Row(
+                child: Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Icon(Icons.timer, color: Colors.white, size: 20),
-                    SizedBox(width: 8),
-                    Text('Iniciar Pomodoro',
-                        style: TextStyle(
+                    const Icon(Icons.timer, color: Colors.white, size: 20),
+                    const SizedBox(width: 8),
+                    Text(context.l10n.startPomodoro,
+                        style: const TextStyle(
                             color: Colors.white,
                             fontSize: 15,
                             fontWeight: FontWeight.bold)),
@@ -775,18 +812,18 @@ class _HomePageState extends State<HomePage> {
                     children: [
                       Text(
                         dias == 0
-                            ? '¡Hoy es tu examen de ${data['curso']}!'
+                            ? context.l10n.examToday(data['curso'] as String)
                             : dias == 1
-                                ? 'Mañana: examen de ${data['curso']}'
-                                : 'Examen de ${data['curso']} en $dias días',
+                                ? context.l10n.examTomorrow(data['curso'] as String)
+                                : context.l10n.examInDays(data['curso'] as String, dias),
                         style: const TextStyle(
                             color: Colors.white,
                             fontSize: 13,
                             fontWeight: FontWeight.bold),
                       ),
-                      const Text('Toca para estudiar con IA →',
+                      Text(context.l10n.tapToStudyAI,
                           style:
-                              TextStyle(color: Colors.white54, fontSize: 11)),
+                              const TextStyle(color: Colors.white54, fontSize: 11)),
                     ]),
               ),
             ]),
@@ -804,18 +841,18 @@ class _HomePageState extends State<HomePage> {
         width: double.infinity,
         padding: const EdgeInsets.symmetric(vertical: 16),
         decoration: BoxDecoration(
-          color: const Color(0xFF1E1E2A),
+          color: context.bgCard,
           borderRadius: BorderRadius.circular(14),
-          border:
-              Border.all(color: const Color(0xFF7C6AF7).withOpacity(0.5)),
+          border: Border.all(color: const Color(0xFF7C6AF7).withOpacity(0.5)),
+          boxShadow: context.cardShadow,
         ),
-        child: const Row(
+        child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.auto_awesome, color: Color(0xFF7C6AF7), size: 20),
-            SizedBox(width: 8),
-            Text('Estudiar con IA',
-                style: TextStyle(
+            const Icon(Icons.auto_awesome, color: Color(0xFF7C6AF7), size: 20),
+            const SizedBox(width: 8),
+            Text(context.l10n.studyWithAI,
+                style: const TextStyle(
                     color: Color(0xFF7C6AF7),
                     fontSize: 16,
                     fontWeight: FontWeight.w600)),
@@ -832,17 +869,27 @@ class _HomePageState extends State<HomePage> {
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            const Text('EXÁMENES PRÓXIMOS',
-                style: TextStyle(
-                    color: Colors.white70,
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
-                    letterSpacing: 1)),
+            Row(children: [
+              Container(
+                width: 3, height: 13,
+                margin: const EdgeInsets.only(right: 7),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF7584A),
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              Text(context.l10n.upcomingExamsTitle,
+                  style: TextStyle(
+                      color: context.textSecondary,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      letterSpacing: 1)),
+            ]),
             GestureDetector(
               onTap: () => Navigator.push(context,
                   MaterialPageRoute(builder: (_) => const ExamenesPage())),
-              child: const Text('Ver todos',
-                  style: TextStyle(color: Color(0xFF7C6AF7), fontSize: 12)),
+              child: Text(context.l10n.seeAll,
+                  style: const TextStyle(color: Color(0xFF7C6AF7), fontSize: 12)),
             ),
           ],
         ),
@@ -868,13 +915,13 @@ class _HomePageState extends State<HomePage> {
                     border: Border.all(
                         color: const Color(0xFF7C6AF7).withOpacity(0.2)),
                   ),
-                  child: const Row(
+                  child: Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Icon(Icons.add, color: Color(0xFF7C6AF7), size: 18),
-                      SizedBox(width: 8),
-                      Text('Agregar examen',
-                          style: TextStyle(color: Color(0xFF7C6AF7))),
+                      const Icon(Icons.add, color: Color(0xFF7C6AF7), size: 18),
+                      const SizedBox(width: 8),
+                      Text(context.l10n.addExam,
+                          style: const TextStyle(color: Color(0xFF7C6AF7))),
                     ],
                   ),
                 ),
@@ -925,10 +972,10 @@ class _HomePageState extends State<HomePage> {
                         const Spacer(),
                         Text(
                           dias <= 0
-                              ? 'Hoy'
+                              ? context.l10n.todayShort
                               : dias == 1
-                                  ? 'Mañana'
-                                  : '$dias días',
+                                  ? context.l10n.tomorrowShort
+                                  : context.l10n.daysShort(dias),
                           style: TextStyle(
                               color: color,
                               fontSize: 18,
@@ -953,17 +1000,27 @@ class _HomePageState extends State<HomePage> {
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            const Text('HÁBITOS DE HOY',
-                style: TextStyle(
-                    color: Colors.white70,
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
-                    letterSpacing: 1)),
+            Row(children: [
+              Container(
+                width: 3, height: 13,
+                margin: const EdgeInsets.only(right: 7),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF5DE0C5),
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              Text(context.l10n.habitsTodayTitle,
+                  style: TextStyle(
+                      color: context.textSecondary,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      letterSpacing: 1)),
+            ]),
             GestureDetector(
               onTap: () => Navigator.push(context,
                   MaterialPageRoute(builder: (_) => const HabitosPage())),
-              child: const Text('Ver todos',
-                  style: TextStyle(color: Color(0xFF7C6AF7), fontSize: 12)),
+              child: Text(context.l10n.seeAll,
+                  style: const TextStyle(color: Color(0xFF7C6AF7), fontSize: 12)),
             ),
           ],
         ),
@@ -991,13 +1048,13 @@ class _HomePageState extends State<HomePage> {
                     border: Border.all(
                         color: const Color(0xFF7C6AF7).withOpacity(0.2)),
                   ),
-                  child: const Row(
+                  child: Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Icon(Icons.add, color: Color(0xFF7C6AF7), size: 18),
-                      SizedBox(width: 8),
-                      Text('Agregar hábito',
-                          style: TextStyle(color: Color(0xFF7C6AF7))),
+                      const Icon(Icons.add, color: Color(0xFF7C6AF7), size: 18),
+                      const SizedBox(width: 8),
+                      Text(context.l10n.addHabit,
+                          style: const TextStyle(color: Color(0xFF7C6AF7))),
                     ],
                   ),
                 ),
@@ -1091,56 +1148,70 @@ class _HomePageState extends State<HomePage> {
   }
 
   Widget _buildBotones() {
+    final l10n = context.l10n;
     final grilla = <_GrillaItem>[
-      _GrillaItem(Icons.style, const Color(0xFF7C6AF7), 'Flashcards SRS',
+      _GrillaItem(Icons.style, const Color(0xFF7C6AF7), l10n.gridFlashcards,
           () => Navigator.push(context, MaterialPageRoute(builder: (_) => const SRSDecksPage()))),
-      _GrillaItem(Icons.bar_chart, const Color(0xFF4A90E2), 'Mis Notas',
+      _GrillaItem(Icons.bar_chart, const Color(0xFF4A90E2), l10n.gridMyGrades,
           () => Navigator.push(context, MaterialPageRoute(builder: (_) => const CalificacionesPage()))),
-      _GrillaItem(Icons.favorite_outline, const Color(0xFF5DE0C5), 'Mi Bienestar',
+      _GrillaItem(Icons.favorite_outline, const Color(0xFF5DE0C5), l10n.gridWellbeing,
           () => Navigator.push(context, MaterialPageRoute(builder: (_) => const BienestarPage()))),
-      _GrillaItem(Icons.star_outline, const Color(0xFFFFD700), 'Premium',
+      _GrillaItem(Icons.star_outline, const Color(0xFFFFD700), l10n.gridPremium,
           () => Navigator.push(context, MaterialPageRoute(builder: (_) => const PremiumPage()))),
-      _GrillaItem(Icons.school, const Color(0xFF7C6AF7), 'Mi Academia',
+      _GrillaItem(Icons.school, const Color(0xFF7C6AF7), l10n.gridAcademy,
           () => Navigator.push(context, MaterialPageRoute(builder: (_) => const AcademiaPage()))),
-      _GrillaItem(Icons.picture_as_pdf, const Color(0xFFF7584A), 'PDF Simulacro',
+      _GrillaItem(Icons.picture_as_pdf, const Color(0xFFF7584A), l10n.gridPdfSim,
           () => Navigator.push(context, MaterialPageRoute(builder: (_) => const PdfSimulacroPage()))),
-      _GrillaItem(Icons.groups_outlined, const Color(0xFF5DE0C5), 'Grupos',
+      _GrillaItem(Icons.groups_outlined, const Color(0xFF5DE0C5), l10n.gridGroups,
           () => Navigator.push(context, MaterialPageRoute(builder: (_) => const GrupoEstudioPage()))),
-      _GrillaItem(Icons.lightbulb_outline, const Color(0xFFFFC857), 'Feynman',
+      _GrillaItem(Icons.lightbulb_outline, const Color(0xFFFFC857), l10n.gridFeynman,
           () => Navigator.push(context, MaterialPageRoute(builder: (_) => const FeynmanPage()))),
-      _GrillaItem(Icons.cases_outlined, const Color(0xFFF7584A), 'Casos Reales',
+      _GrillaItem(Icons.cases_outlined, const Color(0xFFF7584A), l10n.gridRealCases,
           () => Navigator.push(context, MaterialPageRoute(builder: (_) => const CasosRealesPage()))),
-      _GrillaItem(Icons.school_outlined, const Color(0xFF5DE0C5), 'Aula Virtual',
+      _GrillaItem(Icons.school_outlined, const Color(0xFF5DE0C5), l10n.gridVirtual,
           () => Navigator.push(context, MaterialPageRoute(builder: (_) => const AulaVirtualPage()))),
-      _GrillaItem(Icons.emoji_events_outlined, const Color(0xFF4A90E2), 'Simulacros',
+      _GrillaItem(Icons.emoji_events_outlined, const Color(0xFF4A90E2), l10n.gridSimulacros,
           () => Navigator.push(context, MaterialPageRoute(builder: (_) => const AdmisionPage()))),
-      _GrillaItem(Icons.local_fire_department, const Color(0xFFF7584A), 'Racha',
+      _GrillaItem(Icons.local_fire_department, const Color(0xFFF7584A), l10n.gridStreak,
           () => Navigator.push(context, MaterialPageRoute(builder: (_) => const RachaHeatmapPage()))),
-      _GrillaItem(Icons.emoji_events, const Color(0xFFFFD700), 'Mis Logros',
+      _GrillaItem(Icons.emoji_events, const Color(0xFFFFD700), l10n.gridAchievements,
           () => Navigator.push(context, MaterialPageRoute(builder: (_) => const LogrosPage()))),
-      _GrillaItem(Icons.dashboard, const Color(0xFFFFD700), 'Dashboard',
+      _GrillaItem(Icons.dashboard, const Color(0xFFFFD700), l10n.gridDashboard,
           () => Navigator.push(context, MaterialPageRoute(builder: (_) => const DashboardPage()))),
-      _GrillaItem(Icons.bar_chart_rounded, const Color(0xFF7C6AF7), 'Estadísticas',
+      _GrillaItem(Icons.bar_chart_rounded, const Color(0xFF7C6AF7), l10n.gridStats,
           () => Navigator.push(context, MaterialPageRoute(builder: (_) => const EstadisticasPage()))),
-      _GrillaItem(Icons.leaderboard, const Color(0xFFFFD700), 'Ranking',
+      _GrillaItem(Icons.leaderboard, const Color(0xFFFFD700), l10n.gridRanking,
           () => Navigator.push(context, MaterialPageRoute(builder: (_) => const RankingPage()))),
-      _GrillaItem(Icons.notifications, const Color(0xFF5DE0C5), 'Notificaciones',
+      _GrillaItem(Icons.notifications, const Color(0xFF5DE0C5), l10n.gridNotifications,
           () => Navigator.push(context, MaterialPageRoute(builder: (_) => const PantallaNotificaciones()))),
-      _GrillaItem(Icons.storefront, const Color(0xFFFFD700), 'Tienda',
+      _GrillaItem(Icons.storefront, const Color(0xFFFFD700), l10n.gridStore,
           () => Navigator.push(context, MaterialPageRoute(builder: (_) => const TiendaPage()))),
-      _GrillaItem(Icons.task_alt, const Color(0xFF5DE0C5), 'Misiones',
+      _GrillaItem(Icons.task_alt, const Color(0xFF5DE0C5), l10n.gridMissions,
           () => Navigator.push(context, MaterialPageRoute(builder: (_) => const MisionesPage()))),
     ];
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text('MÁS FUNCIONES',
-            style: TextStyle(
-                color: Colors.white54,
-                fontSize: 12,
-                fontWeight: FontWeight.w700,
-                letterSpacing: 1)),
+        Row(
+          children: [
+            Container(
+              width: 3,
+              height: 14,
+              margin: const EdgeInsets.only(right: 8),
+              decoration: BoxDecoration(
+                gradient: AppC.purpleGradient,
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            Text(context.l10n.moreFeaturesTitle,
+                style: TextStyle(
+                    color: context.textSecondary,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 1)),
+          ],
+        ),
         const SizedBox(height: 12),
         GridView.builder(
           shrinkWrap: true,
@@ -1162,6 +1233,7 @@ class _HomePageState extends State<HomePage> {
                   color: const Color(0xFF1E1E2A),
                   borderRadius: BorderRadius.circular(14),
                   border: Border.all(color: const Color(0xFF7C6AF7).withOpacity(0.3)),
+                  boxShadow: context.cardShadow,
                 ),
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
@@ -1190,7 +1262,7 @@ class _HomePageState extends State<HomePage> {
           _btn(
             icon: Icons.admin_panel_settings,
             color: Colors.orange,
-            label: 'Panel Admin 👁️',
+            label: context.l10n.adminPanel,
             onTap: () => Navigator.push(
                 context, MaterialPageRoute(builder: (_) => const AdminPage())),
           ),
@@ -1199,7 +1271,7 @@ class _HomePageState extends State<HomePage> {
         _btn(
           icon: Icons.logout,
           color: Colors.white38,
-          label: 'Cerrar sesión',
+          label: context.l10n.signOut,
           onTap: _cerrarSesion,
           borderColor: Colors.white12,
         ),

@@ -5,6 +5,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'racha_service.dart';
 import 'services/monedas_service.dart';
+import 'l10n_helper.dart';
 
 class PomodoroPage extends StatefulWidget {
   const PomodoroPage({super.key});
@@ -46,7 +47,6 @@ class _PomodoroPageState extends State<PomodoroPage> {
         });
       }
     } else {
-      // Nuevo día: reiniciar el contador guardado
       await prefs.remove(_kFechaKey);
       await prefs.remove(_kSesionesKey);
     }
@@ -95,15 +95,14 @@ class _PomodoroPageState extends State<PomodoroPage> {
               MonedasService.agregar(MonedasService.porPomodoro, 'pomodoro');
               if (mounted) {
                 ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('🪙 +10 monedas por completar sesión'),
-                    duration: Duration(seconds: 2),
+                  SnackBar(
+                    content: Text(context.l10n.pomCoinSnack),
+                    duration: const Duration(seconds: 2),
                     behavior: SnackBarBehavior.floating,
-                    backgroundColor: Color(0xFF2A2A3E),
+                    backgroundColor: const Color(0xFF2A2A3E),
                   ),
                 );
               }
-              // Primera sesión del día: garantiza que la racha se registre
               if (_sesionesCompletadas == 1) {
                 RachaService().verificarRacha();
                 final pomUser = FirebaseAuth.instance.currentUser;
@@ -154,12 +153,13 @@ class _PomodoroPageState extends State<PomodoroPage> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     final color = _esDescanso ? const Color(0xFF5DE0C5) : const Color(0xFF7C6AF7);
     return Scaffold(
       backgroundColor: const Color(0xFF0F0F14),
       appBar: AppBar(
         backgroundColor: const Color(0xFF0F0F14),
-        title: const Text('Pomodoro', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+        title: Text(l10n.pomodoroTitle, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
         iconTheme: const IconThemeData(color: Colors.white),
       ),
       body: Center(
@@ -167,7 +167,7 @@ class _PomodoroPageState extends State<PomodoroPage> {
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Text(
-              _esDescanso ? '☕ Tiempo de descanso' : '📚 Tiempo de estudio',
+              _esDescanso ? l10n.breakSession : l10n.studySession,
               style: const TextStyle(color: Colors.white54, fontSize: 16),
             ),
             const SizedBox(height: 40),
@@ -235,7 +235,7 @@ class _PomodoroPageState extends State<PomodoroPage> {
                   Column(
                     children: [
                       Text('$_sesionesCompletadas', style: const TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold)),
-                      const Text('sesiones hoy', style: TextStyle(color: Colors.white38, fontSize: 12)),
+                      Text(l10n.sessionsToday, style: const TextStyle(color: Colors.white38, fontSize: 12)),
                     ],
                   ),
                 ],

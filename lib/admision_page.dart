@@ -1,9 +1,12 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'services/ia_service.dart';
 import 'services/monedas_service.dart';
+import 'services/resena_service.dart';
 import 'mixins/ia_limite_mixin.dart';
+import 'l10n_helper.dart';
 
 // ── Country + exam metadata ────────────────────────────────────────────────
 const _paises = <String, Map<String, dynamic>>{
@@ -126,8 +129,7 @@ class _AdmisionPageState extends State<AdmisionPage>
       setState(() => _cargando = false);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-              content: Text('Error al generar el simulacro. Intenta de nuevo.')),
+          SnackBar(content: Text(context.l10n.simError)),
         );
       }
       return;
@@ -184,6 +186,7 @@ class _AdmisionPageState extends State<AdmisionPage>
     if (total > 0 && correctas == total) {
       MonedasService.agregar(MonedasService.porPerfecto, 'simulacro_admision_perfecto');
     }
+    unawaited(ResenaService.onSimulacroCompletado());
   }
 
   // ── Build ───────────────────────────────────────────────────────────────
@@ -195,9 +198,9 @@ class _AdmisionPageState extends State<AdmisionPage>
       appBar: AppBar(
         backgroundColor: const Color(0xFF0F0F14),
         iconTheme: const IconThemeData(color: Colors.white),
-        title: const Text(
-          'Simulacros de Admisión',
-          style: TextStyle(
+        title: Text(
+          context.l10n.admisionTitle,
+          style: const TextStyle(
               color: Colors.white, fontWeight: FontWeight.bold, fontSize: 17),
         ),
         actions: [
@@ -209,8 +212,8 @@ class _AdmisionPageState extends State<AdmisionPage>
                 _respuestasUsuario = [];
                 _terminado = false;
               }),
-              child: const Text('Nuevo',
-                  style: TextStyle(color: Color(0xFF7C6AF7))),
+              child: Text(context.l10n.newLabel,
+                  style: const TextStyle(color: Color(0xFF7C6AF7))),
             ),
         ],
       ),
@@ -221,8 +224,8 @@ class _AdmisionPageState extends State<AdmisionPage>
                 children: [
                   CircularProgressIndicator(color: Color(0xFF7C6AF7)),
                   SizedBox(height: 16),
-                  Text('Generando simulacro con IA...',
-                      style: TextStyle(color: Colors.white54)),
+                  Text(context.l10n.generatingAI,
+                      style: const TextStyle(color: Colors.white54)),
                 ],
               ),
             )
@@ -251,21 +254,20 @@ class _AdmisionPageState extends State<AdmisionPage>
                   colors: [Color(0xFF1F2A5E), Color(0xFF1A3A2F)]),
               borderRadius: BorderRadius.circular(16),
             ),
-            child: const Row(children: [
-              Text('🎓', style: TextStyle(fontSize: 32)),
-              SizedBox(width: 12),
+            child: Row(children: [
+              const Text('🎓', style: TextStyle(fontSize: 32)),
+              const SizedBox(width: 12),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('Simulacros de Admisión',
-                        style: TextStyle(
+                    Text(context.l10n.admisionTitle,
+                        style: const TextStyle(
                             color: Colors.white,
                             fontWeight: FontWeight.bold,
                             fontSize: 16)),
-                    Text(
-                        'Practica con preguntas al estilo de los exámenes reales',
-                        style: TextStyle(color: Colors.white54, fontSize: 12)),
+                    Text(context.l10n.admisionSubtitle,
+                        style: const TextStyle(color: Colors.white54, fontSize: 12)),
                   ],
                 ),
               ),
@@ -274,8 +276,8 @@ class _AdmisionPageState extends State<AdmisionPage>
           const SizedBox(height: 24),
 
           // País
-          const Text('PAÍS',
-              style: TextStyle(
+          Text(context.l10n.countryLabel,
+              style: const TextStyle(
                   color: Colors.white70,
                   fontSize: 11,
                   fontWeight: FontWeight.w600,
@@ -328,8 +330,8 @@ class _AdmisionPageState extends State<AdmisionPage>
           const SizedBox(height: 20),
 
           // Tipo de examen
-          const Text('EXAMEN',
-              style: TextStyle(
+          Text(context.l10n.examLabel,
+              style: const TextStyle(
                   color: Colors.white70,
                   fontSize: 11,
                   fontWeight: FontWeight.w600,
@@ -381,8 +383,8 @@ class _AdmisionPageState extends State<AdmisionPage>
           const SizedBox(height: 20),
 
           // Cantidad
-          const Text('CANTIDAD DE PREGUNTAS',
-              style: TextStyle(
+          Text(context.l10n.questionsLabel,
+              style: const TextStyle(
                   color: Colors.white70,
                   fontSize: 11,
                   fontWeight: FontWeight.w600,
@@ -458,7 +460,7 @@ class _AdmisionPageState extends State<AdmisionPage>
               onPressed: _generarSimulacro,
               icon: const Icon(Icons.play_arrow, color: Colors.white),
               label: Text(
-                'Iniciar Simulacro — $_paisSeleccionado',
+                context.l10n.startSim(_paisSeleccionado),
                 style: const TextStyle(
                     color: Colors.white,
                     fontSize: 16,
@@ -483,8 +485,8 @@ class _AdmisionPageState extends State<AdmisionPage>
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text('HISTORIAL RECIENTE',
-            style: TextStyle(
+        Text(context.l10n.recentHistory,
+            style: const TextStyle(
                 color: Colors.white70,
                 fontSize: 11,
                 fontWeight: FontWeight.w600,
@@ -508,8 +510,8 @@ class _AdmisionPageState extends State<AdmisionPage>
                 child: Center(
                   child: Text(
                     snap.hasError
-                        ? 'Error al cargar historial'
-                        : 'Aún no has hecho simulacros',
+                        ? context.l10n.historyError
+                        : context.l10n.noSimulacros,
                     style: const TextStyle(color: Colors.white38, fontSize: 13)),
                 ),
               );
@@ -547,7 +549,10 @@ class _AdmisionPageState extends State<AdmisionPage>
                                     fontSize: 13,
                                     fontWeight: FontWeight.w600)),
                             Text(
-                                '${d['correctas']}/${d['cantidadPreguntas']} correctas',
+                                context.l10n.correctOf(
+                                  (d['correctas'] as num? ?? 0).toInt(),
+                                  (d['cantidadPreguntas'] as num? ?? 0).toInt(),
+                                ),
                                 style: const TextStyle(
                                     color: Colors.white38, fontSize: 11)),
                           ],
@@ -596,7 +601,7 @@ class _AdmisionPageState extends State<AdmisionPage>
                     fontWeight: FontWeight.w600),
               ),
               Text(
-                'Pregunta ${_preguntaActual + 1} / ${_preguntas.length}',
+                context.l10n.questionCounter(_preguntaActual + 1, _preguntas.length),
                 style: const TextStyle(color: Colors.white54, fontSize: 12),
               ),
             ],
@@ -725,8 +730,8 @@ class _AdmisionPageState extends State<AdmisionPage>
                       shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(12)),
                     ),
-                    child: const Text('Anterior',
-                        style: TextStyle(color: Colors.white54)),
+                    child: Text(context.l10n.previousQuestion,
+                        style: const TextStyle(color: Colors.white54)),
                   ),
                 ),
               if (_preguntaActual > 0) const SizedBox(width: 10),
@@ -752,8 +757,8 @@ class _AdmisionPageState extends State<AdmisionPage>
                   ),
                   child: Text(
                     _preguntaActual < _preguntas.length - 1
-                        ? 'Siguiente'
-                        : 'Ver resultado',
+                        ? context.l10n.next
+                        : context.l10n.seeResult,
                     style: const TextStyle(
                         color: Colors.white, fontWeight: FontWeight.bold),
                   ),
@@ -778,11 +783,12 @@ class _AdmisionPageState extends State<AdmisionPage>
             ? const Color(0xFFF7A26A)
             : const Color(0xFFF7584A);
     final emoji = pct >= 70 ? '🎉' : pct >= 50 ? '👍' : '💪';
+    final l10n = context.l10n;
     final msg = pct >= 70
-        ? '¡Excelente puntaje!'
+        ? l10n.resultExcellent
         : pct >= 50
-            ? '¡Bien! Sigue practicando'
-            : 'No te rindas, practica más';
+            ? l10n.resultGood
+            : l10n.resultTryMore;
 
     return SingleChildScrollView(
       padding: const EdgeInsets.all(20),
@@ -818,7 +824,7 @@ class _AdmisionPageState extends State<AdmisionPage>
                         color: color,
                         fontSize: 56,
                         fontWeight: FontWeight.bold)),
-                Text('$correctas de $total respuestas correctas',
+                Text(l10n.correctOf(correctas, total),
                     style: const TextStyle(
                         color: Colors.white54, fontSize: 13)),
               ],
@@ -827,10 +833,10 @@ class _AdmisionPageState extends State<AdmisionPage>
           const SizedBox(height: 20),
 
           // Revisión
-          const Align(
+          Align(
             alignment: Alignment.centerLeft,
-            child: Text('REVISIÓN DE RESPUESTAS',
-                style: TextStyle(
+            child: Text(l10n.reviewAnswers,
+                style: const TextStyle(
                     color: Colors.white70,
                     fontSize: 11,
                     fontWeight: FontWeight.w600,
@@ -904,12 +910,12 @@ class _AdmisionPageState extends State<AdmisionPage>
                   const SizedBox(height: 8),
                   if (!esCorrecta) ...[
                     Text(
-                      'Tu respuesta: ${_respuestasUsuario[i] ?? 'Sin respuesta'}',
+                      '${l10n.yourAnswer} ${_respuestasUsuario[i] ?? '—'}',
                       style: const TextStyle(
                           color: Color(0xFFF7584A), fontSize: 12),
                     ),
                     Text(
-                      'Correcta: $opCorrecta',
+                      '${l10n.correctAnswer} $opCorrecta',
                       style: const TextStyle(
                           color: Color(0xFF5DE0C5), fontSize: 12),
                     ),
@@ -946,8 +952,8 @@ class _AdmisionPageState extends State<AdmisionPage>
                     _terminado = false;
                   }),
                   icon: const Icon(Icons.list, color: Color(0xFF7C6AF7)),
-                  label: const Text('Volver',
-                      style: TextStyle(color: Color(0xFF7C6AF7))),
+                  label: Text(l10n.back,
+                      style: const TextStyle(color: Color(0xFF7C6AF7))),
                   style: OutlinedButton.styleFrom(
                     side:
                         const BorderSide(color: Color(0xFF7C6AF7)),
@@ -962,8 +968,8 @@ class _AdmisionPageState extends State<AdmisionPage>
                 child: ElevatedButton.icon(
                   onPressed: _generarSimulacro,
                   icon: const Icon(Icons.refresh, color: Colors.white),
-                  label: const Text('Otro simulacro',
-                      style: TextStyle(
+                  label: Text(l10n.anotherSim,
+                      style: const TextStyle(
                           color: Colors.white, fontWeight: FontWeight.bold)),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: const Color(0xFF7C6AF7),

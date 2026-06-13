@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
+import 'l10n_helper.dart';
 
 class SinConexionPage extends StatefulWidget {
   final Widget child;
@@ -55,11 +56,10 @@ class _SinConexionPageState extends State<SinConexionPage>
 
   @override
   Widget build(BuildContext context) {
-    // Siempre muestra el contenido — Firestore usa caché offline automáticamente
+    final l10n = context.l10n;
     return Stack(
       children: [
         widget.child,
-        // Banner de sin conexión (solo cuando no hay internet)
         if (_sinConexion)
           Positioned(
             top: 0,
@@ -91,22 +91,22 @@ class _SinConexionPageState extends State<SinConexionPage>
                       children: [
                         const Text('📡', style: TextStyle(fontSize: 16)),
                         const SizedBox(width: 10),
-                        const Expanded(
+                        Expanded(
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             mainAxisSize: MainAxisSize.min,
                             children: [
                               Text(
-                                'Sin conexión — Modo offline',
-                                style: TextStyle(
+                                l10n.offlineTitle,
+                                style: const TextStyle(
                                   color: Color(0xFFF7A26A),
                                   fontSize: 12,
                                   fontWeight: FontWeight.bold,
                                 ),
                               ),
                               Text(
-                                'Mostrando datos del último acceso',
-                                style: TextStyle(color: Colors.white54, fontSize: 11),
+                                l10n.offlineBody,
+                                style: const TextStyle(color: Colors.white54, fontSize: 11),
                               ),
                             ],
                           ),
@@ -119,9 +119,9 @@ class _SinConexionPageState extends State<SinConexionPage>
                               color: const Color(0xFFF7A26A).withOpacity(0.15),
                               borderRadius: BorderRadius.circular(8),
                             ),
-                            child: const Text(
-                              'Reintentar',
-                              style: TextStyle(
+                            child: Text(
+                              l10n.retry,
+                              style: const TextStyle(
                                 color: Color(0xFFF7A26A),
                                 fontSize: 11,
                                 fontWeight: FontWeight.w600,

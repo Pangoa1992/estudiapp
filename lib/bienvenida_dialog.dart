@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'l10n_helper.dart';
 
 class BienvenidaDialog {
   static Future<void> mostrarSiCorresponde({
@@ -22,28 +23,11 @@ class BienvenidaDialog {
   }
 }
 
-String _fraseMotivacional(int racha) {
-  if (racha >= 100) return '¡$racha días imparable! Nivel centurión 🚀';
-  if (racha >= 30)  return '¡$racha días de racha! Eres una leyenda 👑';
-  if (racha >= 14)  return '¡Dos semanas seguidas! Hábito forjado ⚡';
-  if (racha >= 7)   return '¡Una semana entera! Estás en fuego 🔥';
-  if (racha >= 3)   return '¡Vas bien! No rompas la racha ahora 💪';
-  if (racha >= 1)   return '¡Buen comienzo! Mantén el ritmo ✨';
-  return 'Hoy es un gran día para estudiar 📚';
-}
-
 String _emoji(int racha) {
   if (racha >= 30) return '👑';
   if (racha >= 7)  return '🔥';
   if (racha >= 1)  return '⚡';
   return '📚';
-}
-
-String _saludo() {
-  final h = DateTime.now().hour;
-  if (h < 12) return 'Buenos días,';
-  if (h < 18) return 'Buenas tardes,';
-  return 'Buenas noches,';
 }
 
 class _BienvenidaContent extends StatelessWidget {
@@ -57,8 +41,26 @@ class _BienvenidaContent extends StatelessWidget {
     required this.escudos,
   });
 
+  String _fraseMotivacional(AppLocalizations l10n) {
+    if (racha >= 100) return l10n.mot100(racha);
+    if (racha >= 30)  return l10n.mot30(racha);
+    if (racha >= 14)  return l10n.mot14;
+    if (racha >= 7)   return l10n.mot7;
+    if (racha >= 3)   return l10n.mot3;
+    if (racha >= 1)   return l10n.mot1;
+    return l10n.mot0;
+  }
+
+  String _saludo(AppLocalizations l10n) {
+    final h = DateTime.now().hour;
+    if (h < 12) return l10n.greetingMorning;
+    if (h < 18) return l10n.greetingAfternoon;
+    return l10n.greetingEvening;
+  }
+
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     final tieneEscudo = escudos > 0;
 
     return Dialog(
@@ -80,7 +82,7 @@ class _BienvenidaContent extends StatelessWidget {
           children: [
             Text(_emoji(racha), style: const TextStyle(fontSize: 54)),
             const SizedBox(height: 10),
-            Text(_saludo(), style: const TextStyle(color: Colors.white54, fontSize: 13)),
+            Text(_saludo(l10n), style: const TextStyle(color: Colors.white54, fontSize: 13)),
             const SizedBox(height: 2),
             Text(
               nombre,
@@ -95,7 +97,7 @@ class _BienvenidaContent extends StatelessWidget {
                 border: Border.all(color: const Color(0xFF7C6AF7).withOpacity(0.3)),
               ),
               child: Text(
-                _fraseMotivacional(racha),
+                _fraseMotivacional(l10n),
                 textAlign: TextAlign.center,
                 style: const TextStyle(color: Colors.white, fontSize: 15, height: 1.45),
               ),
@@ -104,10 +106,10 @@ class _BienvenidaContent extends StatelessWidget {
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                _Pill(label: '🔥 $racha días', color: const Color(0xFFF7A26A)),
+                _Pill(label: '🔥 ${l10n.streakDays(racha)}', color: const Color(0xFFF7A26A)),
                 const SizedBox(width: 10),
                 _Pill(
-                  label: tieneEscudo ? '🛡️ Escudo listo' : '🛡️ Sin escudo',
+                  label: tieneEscudo ? '🛡️ ${l10n.shieldReady}' : '🛡️ ${l10n.shieldEmpty}',
                   color: tieneEscudo ? const Color(0xFF5DE0C5) : Colors.white30,
                 ),
               ],
@@ -124,10 +126,10 @@ class _BienvenidaContent extends StatelessWidget {
                   ),
                   borderRadius: BorderRadius.circular(13),
                 ),
-                child: const Text(
-                  '¡A estudiar! 💪',
+                child: Text(
+                  l10n.welcomeStudy,
                   textAlign: TextAlign.center,
-                  style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
+                  style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
                 ),
               ),
             ),

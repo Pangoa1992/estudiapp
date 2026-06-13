@@ -3,6 +3,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'services/monedas_service.dart';
 import 'tema_service.dart';
+import 'l10n_helper.dart';
 
 class TiendaPage extends StatefulWidget {
   const TiendaPage({super.key});
@@ -21,26 +22,27 @@ class _TiendaPageState extends State<TiendaPage> {
     required Future<void> Function() accion,
   }) async {
     if (_comprando) return;
+    final l10n = context.l10n;
     final confirmar = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
         backgroundColor: const Color(0xFF1E1E2A),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: Text('¿Comprar $titulo?',
+        title: Text('${l10n.redeem} $titulo?',
             style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
         content: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
             const Text('🪙', style: TextStyle(fontSize: 22)),
             const SizedBox(width: 8),
-            Text('$precio monedas',
+            Text('$precio',
                 style: const TextStyle(color: Color(0xFFFFD700), fontSize: 15, fontWeight: FontWeight.bold)),
           ],
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Cancelar', style: TextStyle(color: Colors.white38)),
+            child: Text(l10n.cancel, style: const TextStyle(color: Colors.white38)),
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
@@ -48,7 +50,7 @@ class _TiendaPageState extends State<TiendaPage> {
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
             ),
             onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Confirmar', style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold)),
+            child: Text(l10n.confirm, style: const TextStyle(color: Colors.black, fontWeight: FontWeight.bold)),
           ),
         ],
       ),
@@ -61,9 +63,9 @@ class _TiendaPageState extends State<TiendaPage> {
       if (!mounted) return;
       if (!ok) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('🪙 Monedas insuficientes'),
-            backgroundColor: Color(0xFFF7584A),
+          SnackBar(
+            content: Text(context.l10n.insufficientCoins),
+            backgroundColor: const Color(0xFFF7584A),
             behavior: SnackBarBehavior.floating,
           ),
         );
@@ -73,7 +75,7 @@ class _TiendaPageState extends State<TiendaPage> {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('✅ $titulo activado'),
+          content: Text(context.l10n.itemActivated(titulo)),
           backgroundColor: const Color(0xFF5DE0C5),
           behavior: SnackBarBehavior.floating,
         ),
@@ -108,13 +110,14 @@ class _TiendaPageState extends State<TiendaPage> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     return Scaffold(
       backgroundColor: const Color(0xFF0F0F14),
       appBar: AppBar(
         backgroundColor: const Color(0xFF0F0F14),
         iconTheme: const IconThemeData(color: Colors.white),
-        title: const Text('Tienda',
-            style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+        title: Text(l10n.storeTitle,
+            style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
         actions: [
           if (_user != null)
             StreamBuilder<DocumentSnapshot>(
@@ -149,42 +152,42 @@ class _TiendaPageState extends State<TiendaPage> {
             ),
         ],
       ),
-      body: _buildBody(),
+      body: _buildBody(l10n),
     );
   }
 
-  Widget _buildBody() {
+  Widget _buildBody(AppLocalizations l10n) {
     final items = [
       _TiendaItem(
         emoji: '🛡️',
-        titulo: 'Escudo Extra',
-        descripcion: 'Protege tu racha un día adicional sin perderla',
+        titulo: l10n.itemShieldTitle,
+        descripcion: l10n.itemShieldDesc,
         precio: MonedasService.precioEscudo,
         onTap: () => _comprar(
           precio: MonedasService.precioEscudo,
-          titulo: 'Escudo Extra',
+          titulo: l10n.itemShieldTitle,
           accion: _accionEscudo,
         ),
       ),
       _TiendaItem(
         emoji: '🚀',
-        titulo: 'Boost de Racha x2',
-        descripcion: 'Duplica las monedas de racha diaria durante 24 horas',
+        titulo: l10n.itemBoostTitle,
+        descripcion: l10n.itemBoostDesc,
         precio: MonedasService.precioBoostRacha,
         onTap: () => _comprar(
           precio: MonedasService.precioBoostRacha,
-          titulo: 'Boost de Racha x2',
+          titulo: l10n.itemBoostTitle,
           accion: _accionBoostRacha,
         ),
       ),
       _TiendaItem(
         emoji: '🌙',
-        titulo: 'Tema Oscuro Premium',
-        descripcion: 'Activa el tema oscuro especial de la app',
+        titulo: l10n.itemThemeTitle,
+        descripcion: l10n.itemThemeDesc,
         precio: MonedasService.precioTemaOscuro,
         onTap: () => _comprar(
           precio: MonedasService.precioTemaOscuro,
-          titulo: 'Tema Oscuro Premium',
+          titulo: l10n.itemThemeTitle,
           accion: _accionTemaOscuro,
         ),
       ),
@@ -195,14 +198,14 @@ class _TiendaPageState extends State<TiendaPage> {
         ListView(
           padding: const EdgeInsets.all(20),
           children: [
-            const Text(
-              'Canjea tus monedas por recompensas exclusivas',
-              style: TextStyle(color: Colors.white54, fontSize: 14),
+            Text(
+              l10n.storeSubtitle,
+              style: const TextStyle(color: Colors.white54, fontSize: 14),
             ),
             const SizedBox(height: 8),
-            _buildComoGanarInfo(),
+            _buildComoGanarInfo(l10n),
             const SizedBox(height: 20),
-            ...items.map(_buildItem),
+            ...items.map((item) => _buildItem(item, l10n)),
           ],
         ),
         if (_comprando)
@@ -214,7 +217,16 @@ class _TiendaPageState extends State<TiendaPage> {
     );
   }
 
-  Widget _buildComoGanarInfo() {
+  Widget _buildComoGanarInfo(AppLocalizations l10n) {
+    final ganancias = [
+      ('+10', l10n.earnPomodoro),
+      ('+20', l10n.earnSimulacro),
+      ('+50', l10n.earnPerfectSim),
+      ('+15', l10n.earnDailyStreak),
+      ('+5', l10n.earnIA),
+      ('+10~200', l10n.earnDailyReward),
+    ];
+
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
@@ -225,11 +237,11 @@ class _TiendaPageState extends State<TiendaPage> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text('¿Cómo ganar 🪙?',
-              style: TextStyle(
+          Text(l10n.howEarnCoins,
+              style: const TextStyle(
                   color: Colors.white, fontSize: 13, fontWeight: FontWeight.bold)),
           const SizedBox(height: 8),
-          ..._ganancias.map((g) => Padding(
+          ...ganancias.map((g) => Padding(
                 padding: const EdgeInsets.only(bottom: 4),
                 child: Row(children: [
                   Text(g.$1,
@@ -248,16 +260,7 @@ class _TiendaPageState extends State<TiendaPage> {
     );
   }
 
-  static const _ganancias = [
-    ('+10', 'Completar sesión Pomodoro'),
-    ('+20', 'Completar un simulacro'),
-    ('+50', 'Sacar puntaje perfecto en simulacro'),
-    ('+15', 'Mantener racha diaria'),
-    ('+5', 'Usar herramienta de IA'),
-    ('+10~200', 'Recompensa diaria al abrir la app'),
-  ];
-
-  Widget _buildItem(_TiendaItem item) {
+  Widget _buildItem(_TiendaItem item, AppLocalizations l10n) {
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(16),
@@ -306,8 +309,8 @@ class _TiendaPageState extends State<TiendaPage> {
                           color: Colors.black,
                           fontWeight: FontWeight.bold,
                           fontSize: 13)),
-                  const Text('Canjear',
-                      style: TextStyle(color: Colors.black87, fontSize: 10)),
+                  Text(l10n.redeem,
+                      style: const TextStyle(color: Colors.black87, fontSize: 10)),
                 ],
               ),
             ),

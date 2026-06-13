@@ -4,6 +4,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:timezone/timezone.dart' as tz;
 import 'package:timezone/data/latest.dart' as tz;
+import 'services/idioma_service.dart';
 
 class ServicioNotificaciones {
   static final FlutterLocalNotificationsPlugin _plugin =
@@ -72,28 +73,40 @@ class ServicioNotificaciones {
         'id': 97,
         'hora': 8,
         'minuto': 0,
-        'titulo': '☀️ ¡Buenos días!',
+        'titulo': IdiomaService.t('☀️ ¡Buenos días!', '☀️ Good morning!'),
         'cuerpo': rachaActual > 0
-            ? 'Llevas $rachaActual días de racha. ¡Hoy también puedes!'
-            : '¡Empieza bien el día! Abre EstudiApp y cumple tus hábitos.',
+            ? IdiomaService.t(
+                'Llevas $rachaActual días de racha. ¡Hoy también puedes!',
+                'You\'re on a $rachaActual-day streak. Keep it up today!')
+            : IdiomaService.t(
+                '¡Empieza bien el día! Abre EstudiApp y cumple tus hábitos.',
+                'Start your day right! Open EstudiApp and complete your habits.'),
       },
       {
         'id': 98,
         'hora': 14,
         'minuto': 0,
-        'titulo': '📖 ¡Hora de estudiar!',
+        'titulo': IdiomaService.t('📖 ¡Hora de estudiar!', '📖 Time to study!'),
         'cuerpo': rachaActual > 0
-            ? '¿Ya entraste hoy? No pierdas tu racha de $rachaActual días.'
-            : '¡La tarde es perfecta para estudiar! Abre la app.',
+            ? IdiomaService.t(
+                '¿Ya entraste hoy? No pierdas tu racha de $rachaActual días.',
+                'Checked in today? Don\'t lose your $rachaActual-day streak.')
+            : IdiomaService.t(
+                '¡La tarde es perfecta para estudiar! Abre la app.',
+                'Afternoon is perfect for studying! Open the app.'),
       },
       {
         'id': 99,
         'hora': 20,
         'minuto': 0,
-        'titulo': '🔥 ¡Última oportunidad!',
+        'titulo': IdiomaService.t('🔥 ¡Última oportunidad!', '🔥 Last chance!'),
         'cuerpo': rachaActual > 0
-            ? 'Son las 8 PM. Llevas $rachaActual días seguidos, ¡no la pierdas!'
-            : '¡Todavía estás a tiempo! Entra y comienza tu racha hoy.',
+            ? IdiomaService.t(
+                'Son las 8 PM. Llevas $rachaActual días seguidos, ¡no la pierdas!',
+                'It\'s 8 PM. You\'re on a $rachaActual-day streak — don\'t break it!')
+            : IdiomaService.t(
+                '¡Todavía estás a tiempo! Entra y comienza tu racha hoy.',
+                'Still time! Open the app and start your streak today.'),
       },
     ];
 

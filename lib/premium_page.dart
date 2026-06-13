@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:in_app_purchase/in_app_purchase.dart';
 import 'services/premium_service.dart';
+import 'l10n_helper.dart';
 
 const _kProductId      = 'estudiapp_premium_mensual';
 const _kProductIdAnual = 'estudiapp_premium_mensual:anual';
@@ -96,19 +97,19 @@ class _PremiumPageState extends State<PremiumPage> {
         }
         await _load();
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-            content: Text('¡Premium activado con éxito!'),
-            backgroundColor: Color(0xFF7C6AF7),
-            duration: Duration(seconds: 3),
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+            content: Text(context.l10n.premiumSuccess),
+            backgroundColor: const Color(0xFF7C6AF7),
+            duration: const Duration(seconds: 3),
           ));
         }
       } else if (p.status == PurchaseStatus.pending) {
         if (mounted) setState(() => _loading = false);
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-            content: Text('Pago pendiente de confirmación bancaria...'),
-            backgroundColor: Color(0xFF2A2A3E),
-            duration: Duration(seconds: 4),
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+            content: Text(context.l10n.paymentPending),
+            backgroundColor: const Color(0xFF2A2A3E),
+            duration: const Duration(seconds: 4),
           ));
         }
       } else if (p.status == PurchaseStatus.error) {
@@ -117,8 +118,8 @@ class _PremiumPageState extends State<PremiumPage> {
         }
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-            content: Text(
-                'Error en el pago: ${p.error?.message ?? 'Intenta de nuevo'}'),
+            content: Text(context.l10n.paymentError(
+                p.error?.message ?? context.l10n.retry)),
             backgroundColor: Colors.red.shade700,
           ));
         }
@@ -134,17 +135,17 @@ class _PremiumPageState extends State<PremiumPage> {
     if (activado) {
       await _load();
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-        content: Text('¡7 días Premium activados! Disfruta sin límites 🎉'),
-        backgroundColor: Color(0xFF5DE0C5),
-        duration: Duration(seconds: 3),
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(context.l10n.trialSuccess),
+        backgroundColor: const Color(0xFF5DE0C5),
+        duration: const Duration(seconds: 3),
       ));
     } else {
       if (!mounted) return;
       setState(() { _loading = false; _trialDisponible = false; });
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-        content: Text('Ya usaste el período de prueba gratuito.'),
-        backgroundColor: Color(0xFF1E1E2A),
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(context.l10n.trialUsed),
+        backgroundColor: const Color(0xFF1E1E2A),
       ));
     }
   }
@@ -152,8 +153,8 @@ class _PremiumPageState extends State<PremiumPage> {
   Future<void> _comprar() async {
     final producto = _planAnualSeleccionado ? _productoAnual : _productoMensual;
     if (producto == null) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-        content: Text('Suscripción no disponible aún. Verifica tu conexión e intenta de nuevo.'),
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(context.l10n.notAvailable),
       ));
       return;
     }
@@ -176,13 +177,14 @@ class _PremiumPageState extends State<PremiumPage> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     return Scaffold(
       backgroundColor: const Color(0xFF0F0F14),
       appBar: AppBar(
         backgroundColor: const Color(0xFF0F0F14),
         iconTheme: const IconThemeData(color: Colors.white),
-        title: const Text('EstudiApp Premium',
-            style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+        title: Text(l10n.premiumTitle,
+            style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(20),
@@ -204,72 +206,72 @@ class _PremiumPageState extends State<PremiumPage> {
                 children: [
                   const Text('⭐', style: TextStyle(fontSize: 52)),
                   const SizedBox(height: 12),
-                  const Text('EstudiApp Premium',
-                      style: TextStyle(
+                  Text(l10n.premiumTitle,
+                      style: const TextStyle(
                           color: Colors.white,
                           fontSize: 24,
                           fontWeight: FontWeight.bold)),
                   const SizedBox(height: 6),
-                  const Text('Todo el poder del aprendizaje, sin límites',
+                  Text(l10n.premiumSlogan,
                       textAlign: TextAlign.center,
-                      style: TextStyle(color: Colors.white70, fontSize: 14)),
+                      style: const TextStyle(color: Colors.white70, fontSize: 14)),
                   const SizedBox(height: 16),
                   if (_isPremium && _expiry != null)
-                    _chip('✓ Activo hasta ${_expiry!.day}/${_expiry!.month}/${_expiry!.year}')
+                    _chip(l10n.activeUntilDate(_expiry!.day, _expiry!.month, _expiry!.year))
                   else
-                    _chip('Desde $_precioMensual/mes · Cancela cuando quieras'),
+                    _chip(l10n.fromPrice(_precioMensual)),
                 ],
               ),
             ),
             const SizedBox(height: 28),
 
             // Benefits
-            const Align(
+            Align(
               alignment: Alignment.centerLeft,
-              child: Text('QUÉ INCLUYE PREMIUM',
-                  style: TextStyle(
+              child: Text(l10n.premiumIncludes,
+                  style: const TextStyle(
                       color: Colors.white70,
                       fontSize: 11,
                       fontWeight: FontWeight.w600,
                       letterSpacing: 1)),
             ),
             const SizedBox(height: 12),
-            ..._beneficios.map((b) =>
+            ..._buildBeneficios(l10n).map((b) =>
                 _beneficioCard(b['icon']!, b['titulo']!, b['desc']!)),
             const SizedBox(height: 28),
 
             // Plan selector (solo si no tiene Premium activo)
             if (!_isPremium) ...[
-              _buildSelectorPlan(),
+              _buildSelectorPlan(l10n),
               const SizedBox(height: 28),
             ],
 
             // Comparison
-            _buildComparacion(),
+            _buildComparacion(l10n),
             const SizedBox(height: 28),
 
             // CTA
             if (_isPremium) ...[
-              _activoCard(),
+              _activoCard(l10n),
             ] else ...[
               if (_trialDisponible) ...[
-                _botonTrialGratuito(),
+                _botonTrialGratuito(l10n),
                 const SizedBox(height: 12),
               ],
-              _botonSuscribirse(),
+              _botonSuscribirse(l10n),
               const SizedBox(height: 12),
               if (_iapAvailable)
                 TextButton(
                   onPressed: _loading ? null : _restaurar,
-                  child: const Text('Restaurar compra anterior',
-                      style: TextStyle(color: Colors.white38, fontSize: 13)),
+                  child: Text(l10n.restorePurchase,
+                      style: const TextStyle(color: Colors.white38, fontSize: 13)),
                 ),
               const SizedBox(height: 4),
-              const Center(
+              Center(
                 child: Text(
-                  'Pago seguro a través de Google Play · Cancela cuando quieras',
+                  l10n.securePayment,
                   textAlign: TextAlign.center,
-                  style: TextStyle(color: Colors.white24, fontSize: 11),
+                  style: const TextStyle(color: Colors.white24, fontSize: 11),
                 ),
               ),
             ],
@@ -282,13 +284,13 @@ class _PremiumPageState extends State<PremiumPage> {
 
   // ── Selector de plan (Anual / Mensual) ──────────────────────────────────────
 
-  Widget _buildSelectorPlan() {
+  Widget _buildSelectorPlan(AppLocalizations l10n) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
-          'ELIGE TU PLAN',
-          style: TextStyle(
+        Text(
+          l10n.choosePlan,
+          style: const TextStyle(
               color: Colors.white70,
               fontSize: 11,
               fontWeight: FontWeight.w700,
@@ -327,8 +329,8 @@ class _PremiumPageState extends State<PremiumPage> {
                           color: const Color(0xFF7C6AF7),
                           borderRadius: BorderRadius.circular(4),
                         ),
-                        child: const Text('RECOMENDADO',
-                            style: TextStyle(
+                        child: Text(l10n.recommended,
+                            style: const TextStyle(
                                 color: Colors.white,
                                 fontSize: 8,
                                 fontWeight: FontWeight.bold,
@@ -342,13 +344,13 @@ class _PremiumPageState extends State<PremiumPage> {
                             fontSize: 20,
                             fontWeight: FontWeight.bold),
                       ),
-                      const Text('por año',
-                          style: TextStyle(color: Colors.white54, fontSize: 11)),
+                      Text(l10n.perYear,
+                          style: const TextStyle(color: Colors.white54, fontSize: 11)),
                       const SizedBox(height: 6),
-                      Text(
+                      const Text(
                         '≈ S/.8.25/mes',
                         style: TextStyle(
-                            color: const Color(0xFF5DE0C5),
+                            color: Color(0xFF5DE0C5),
                             fontSize: 11,
                             fontWeight: FontWeight.w600),
                       ),
@@ -360,21 +362,21 @@ class _PremiumPageState extends State<PremiumPage> {
                           color: const Color(0xFF5DE0C5).withValues(alpha: 0.15),
                           borderRadius: BorderRadius.circular(4),
                         ),
-                        child: const Text('AHORRAS 45%',
-                            style: TextStyle(
+                        child: Text(l10n.save45pct,
+                            style: const TextStyle(
                                 color: Color(0xFF5DE0C5),
                                 fontSize: 9,
                                 fontWeight: FontWeight.bold)),
                       ),
                       if (_planAnualSeleccionado)
-                        const Padding(
-                          padding: EdgeInsets.only(top: 8),
+                        Padding(
+                          padding: const EdgeInsets.only(top: 8),
                           child: Row(children: [
-                            Icon(Icons.check_circle,
+                            const Icon(Icons.check_circle,
                                 color: Color(0xFF7C6AF7), size: 14),
-                            SizedBox(width: 4),
-                            Text('Seleccionado',
-                                style: TextStyle(
+                            const SizedBox(width: 4),
+                            Text(l10n.selected,
+                                style: const TextStyle(
                                     color: Color(0xFF7C6AF7), fontSize: 10)),
                           ]),
                         ),
@@ -413,8 +415,8 @@ class _PremiumPageState extends State<PremiumPage> {
                           color: Colors.white12,
                           borderRadius: BorderRadius.circular(4),
                         ),
-                        child: const Text('MENSUAL',
-                            style: TextStyle(
+                        child: Text(l10n.monthlyLabel,
+                            style: const TextStyle(
                                 color: Colors.white54,
                                 fontSize: 8,
                                 fontWeight: FontWeight.bold,
@@ -428,16 +430,16 @@ class _PremiumPageState extends State<PremiumPage> {
                             fontSize: 20,
                             fontWeight: FontWeight.bold),
                       ),
-                      const Text('por mes',
-                          style: TextStyle(color: Colors.white54, fontSize: 11)),
+                      Text(l10n.perMonth,
+                          style: const TextStyle(color: Colors.white54, fontSize: 11)),
                       const SizedBox(height: 18),
                       if (!_planAnualSeleccionado)
-                        const Row(children: [
-                          Icon(Icons.check_circle,
+                        Row(children: [
+                          const Icon(Icons.check_circle,
                               color: Color(0xFF5DE0C5), size: 14),
-                          SizedBox(width: 4),
-                          Text('Seleccionado',
-                              style: TextStyle(
+                          const SizedBox(width: 4),
+                          Text(l10n.selected,
+                              style: const TextStyle(
                                   color: Color(0xFF5DE0C5), fontSize: 10)),
                         ]),
                     ],
@@ -463,7 +465,7 @@ class _PremiumPageState extends State<PremiumPage> {
     );
   }
 
-  Widget _botonTrialGratuito() {
+  Widget _botonTrialGratuito(AppLocalizations l10n) {
     return SizedBox(
       width: double.infinity,
       child: ElevatedButton(
@@ -481,20 +483,20 @@ class _PremiumPageState extends State<PremiumPage> {
                 child: CircularProgressIndicator(
                     color: Colors.white, strokeWidth: 2),
               )
-            : const Column(
+            : Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Text(
-                    'Probar 7 días gratis',
-                    style: TextStyle(
+                    l10n.tryFree,
+                    style: const TextStyle(
                         color: Colors.white,
                         fontSize: 16,
                         fontWeight: FontWeight.bold),
                   ),
-                  SizedBox(height: 2),
+                  const SizedBox(height: 2),
                   Text(
-                    'Sin tarjeta · Solo una vez por cuenta',
-                    style: TextStyle(color: Colors.white70, fontSize: 12),
+                    l10n.tryFreeSubtitle,
+                    style: const TextStyle(color: Colors.white70, fontSize: 12),
                   ),
                 ],
               ),
@@ -502,14 +504,12 @@ class _PremiumPageState extends State<PremiumPage> {
     );
   }
 
-  Widget _botonSuscribirse() {
+  Widget _botonSuscribirse(AppLocalizations l10n) {
     final productoActual = _planAnualSeleccionado ? _productoAnual : _productoMensual;
     final disponible = _iapAvailable && !_loadingProducts && productoActual != null;
     final precio = _planAnualSeleccionado ? _precioAnual : _precioMensual;
-    final periodo = _planAnualSeleccionado ? 'año' : 'mes';
-    final sublinea = _planAnualSeleccionado
-        ? 'Cobro anual vía Google Play · S/.8.25/mes'
-        : 'Cobro mensual vía Google Play';
+    final periodo = _planAnualSeleccionado ? l10n.perYear : l10n.perMonth;
+    final sublinea = _planAnualSeleccionado ? l10n.billingAnnual : l10n.billingMonthly;
 
     return SizedBox(
       width: double.infinity,
@@ -531,8 +531,8 @@ class _PremiumPageState extends State<PremiumPage> {
                 children: [
                   Text(
                     disponible
-                        ? 'Suscribirse — $precio/$periodo'
-                        : 'No disponible en este dispositivo',
+                        ? l10n.subscribeBtn(precio, periodo)
+                        : l10n.notAvailable,
                     style: const TextStyle(
                         color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
                   ),
@@ -547,7 +547,7 @@ class _PremiumPageState extends State<PremiumPage> {
     );
   }
 
-  Widget _activoCard() {
+  Widget _activoCard(AppLocalizations l10n) {
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(16),
@@ -557,13 +557,13 @@ class _PremiumPageState extends State<PremiumPage> {
         border: Border.all(
             color: const Color(0xFF5DE0C5).withValues(alpha: 0.3)),
       ),
-      child: const Row(
+      child: Row(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(Icons.check_circle, color: Color(0xFF5DE0C5), size: 20),
-          SizedBox(width: 8),
-          Text('¡Ya tienes Premium activo!',
-              style: TextStyle(
+          const Icon(Icons.check_circle, color: Color(0xFF5DE0C5), size: 20),
+          const SizedBox(width: 8),
+          Text(l10n.alreadyPremium,
+              style: const TextStyle(
                   color: Color(0xFF5DE0C5),
                   fontWeight: FontWeight.bold,
                   fontSize: 15)),
@@ -572,37 +572,13 @@ class _PremiumPageState extends State<PremiumPage> {
     );
   }
 
-  static const _beneficios = [
-    {
-      'icon': '🏫',
-      'titulo': 'Panel de Docente',
-      'desc': 'Crea tu academia, agrega alumnos y gestiona exámenes'
-    },
-    {
-      'icon': '📄',
-      'titulo': 'PDF a Simulacro',
-      'desc': 'Sube exámenes reales en PDF y la IA los convierte a tests interactivos'
-    },
-    {
-      'icon': '👥',
-      'titulo': 'Grupos de Estudio',
-      'desc': 'Estudia en tiempo real con tus compañeros'
-    },
-    {
-      'icon': '🔔',
-      'titulo': 'Notificaciones Inteligentes',
-      'desc': 'La IA programa tus recordatorios según tus exámenes y racha'
-    },
-    {
-      'icon': '🎓',
-      'titulo': 'IA sin límites',
-      'desc': 'Genera contenido, flashcards y documentos sin restricciones'
-    },
-    {
-      'icon': '🌎',
-      'titulo': 'Simulacros de Admisión',
-      'desc': 'Acceso a todos los países y tipos de examen de admisión'
-    },
+  List<Map<String, String>> _buildBeneficios(AppLocalizations l10n) => [
+    {'icon': '🏫', 'titulo': l10n.b1Title, 'desc': l10n.b1Desc},
+    {'icon': '📄', 'titulo': l10n.b2Title, 'desc': l10n.b2Desc},
+    {'icon': '👥', 'titulo': l10n.b3Title, 'desc': l10n.b3Desc},
+    {'icon': '🔔', 'titulo': l10n.b4Title, 'desc': l10n.b4Desc},
+    {'icon': '🎓', 'titulo': l10n.b5Title, 'desc': l10n.b5Desc},
+    {'icon': '🌎', 'titulo': l10n.b6Title, 'desc': l10n.b6Desc},
   ];
 
   Widget _beneficioCard(String icon, String titulo, String desc) {
@@ -651,7 +627,7 @@ class _PremiumPageState extends State<PremiumPage> {
     );
   }
 
-  Widget _buildComparacion() {
+  Widget _buildComparacion(AppLocalizations l10n) {
     return Container(
       decoration: BoxDecoration(
         color: const Color(0xFF1E1E2A),
@@ -660,14 +636,14 @@ class _PremiumPageState extends State<PremiumPage> {
       ),
       child: Column(
         children: [
-          _fila('', 'Gratis', 'Premium', esHeader: true),
-          _fila('Asistente IA', '5/día', 'Ilimitado'),
-          _fila('Flashcards SRS', '✓', '✓'),
-          _fila('Simulacros', '5 preguntas', 'Ilimitado'),
-          _fila('PDF a Simulacro', '✗', '✓'),
-          _fila('Grupos de estudio', '✗', '✓'),
-          _fila('Panel Docente', '✗', '✓'),
-          _fila('Sin anuncios', '✗', '✓'),
+          _fila('', l10n.compFree, l10n.compPremium, esHeader: true),
+          _fila(l10n.compAI, l10n.comp5day, l10n.compUnlimited),
+          _fila(l10n.compFlashcards, '✓', '✓'),
+          _fila(l10n.compSimulacros, l10n.comp5questions, l10n.compUnlimited),
+          _fila(l10n.compPDF, '✗', '✓'),
+          _fila(l10n.compGroups, '✗', '✓'),
+          _fila(l10n.compTeacher, '✗', '✓'),
+          _fila(l10n.compNoAds, '✗', '✓'),
         ],
       ),
     );

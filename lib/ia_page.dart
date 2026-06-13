@@ -19,6 +19,7 @@ import 'package:cloud_functions/cloud_functions.dart';
 import 'package:share_plus/share_plus.dart';
 import 'premium_page.dart';
 import 'services/monedas_service.dart';
+import 'l10n_helper.dart';
 
 class IAPage extends StatefulWidget {
   const IAPage({super.key});
@@ -129,10 +130,9 @@ class _IAPageState extends State<IAPage> {
         await _actualizarRestantes();
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text(
-                  '¡Ganaste 2 búsquedas extra por completar el simulacro! 🎯'),
-              backgroundColor: Color(0xFF5DE0C5),
+            SnackBar(
+              content: Text(context.l10n.iaGot2Bonus),
+              backgroundColor: const Color(0xFF5DE0C5),
             ),
           );
         }
@@ -149,7 +149,7 @@ class _IAPageState extends State<IAPage> {
     if (_rewardedAd == null) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Anuncio no disponible. Intenta en un momento.')),
+          SnackBar(content: Text(context.l10n.iaAdNotAvail)),
         );
       }
       return;
@@ -160,9 +160,9 @@ class _IAPageState extends State<IAPage> {
         await _actualizarRestantes();
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('¡Ganaste 3 búsquedas extra! 🎉'),
-              backgroundColor: Color(0xFF5DE0C5),
+            SnackBar(
+              content: Text(context.l10n.iaGot3),
+              backgroundColor: const Color(0xFF5DE0C5),
             ),
           );
         }
@@ -172,6 +172,7 @@ class _IAPageState extends State<IAPage> {
 
   Future<void> _mostrarPasarela() async {
     if (!mounted) return;
+    final l10n = context.l10n;
     await showModalBottomSheet<void>(
       context: context,
       backgroundColor: const Color(0xFF1E1E2A),
@@ -191,14 +192,14 @@ class _IAPageState extends State<IAPage> {
               child: const Icon(Icons.auto_awesome, color: Color(0xFF7C6AF7), size: 40),
             ),
             const SizedBox(height: 16),
-            const Text(
-              'Sin búsquedas disponibles',
-              style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
+            Text(
+              l10n.iaLimitTitle,
+              style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 8),
-            const Text(
-              'Usaste tus 5 búsquedas gratuitas de hoy.\nVuelve mañana o gana más ahora mismo.',
-              style: TextStyle(color: Colors.white54, fontSize: 13),
+            Text(
+              l10n.iaLimitBody,
+              style: const TextStyle(color: Colors.white54, fontSize: 13),
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 24),
@@ -209,9 +210,9 @@ class _IAPageState extends State<IAPage> {
                     ? () { Navigator.pop(ctx); _mostrarRewardedAd(); }
                     : null,
                 icon: const Icon(Icons.play_circle_outline, color: Colors.white),
-                label: const Text(
-                  'Ver anuncio  (+3 búsquedas gratis)',
-                  style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                label: Text(
+                  l10n.iaWatchAdBtn,
+                  style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
                 ),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: const Color(0xFF5DE0C5),
@@ -222,11 +223,11 @@ class _IAPageState extends State<IAPage> {
               ),
             ),
             if (_rewardedAd == null)
-              const Padding(
-                padding: EdgeInsets.only(top: 6),
+              Padding(
+                padding: const EdgeInsets.only(top: 6),
                 child: Text(
-                  'Anuncio cargando, intenta de nuevo en un momento',
-                  style: TextStyle(color: Colors.white38, fontSize: 11),
+                  l10n.iaAdLoading,
+                  style: const TextStyle(color: Colors.white38, fontSize: 11),
                   textAlign: TextAlign.center,
                 ),
               ),
@@ -239,9 +240,9 @@ class _IAPageState extends State<IAPage> {
                   Navigator.push(context, MaterialPageRoute(builder: (_) => const PremiumPage()));
                 },
                 icon: const Icon(Icons.star_rounded, color: Colors.white),
-                label: const Text(
-                  'Hacerse Premium — búsquedas ilimitadas',
-                  style: TextStyle(color: Colors.white),
+                label: Text(
+                  l10n.iaPremiumBtn,
+                  style: const TextStyle(color: Colors.white),
                 ),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: const Color(0xFF7C6AF7),
@@ -253,7 +254,7 @@ class _IAPageState extends State<IAPage> {
             const SizedBox(height: 8),
             TextButton(
               onPressed: () => Navigator.pop(ctx),
-              child: const Text('Cancelar', style: TextStyle(color: Colors.white38)),
+              child: Text(l10n.cancel, style: const TextStyle(color: Colors.white38)),
             ),
           ],
         ),
@@ -1248,12 +1249,13 @@ class _IAPageState extends State<IAPage> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     return Scaffold(
       backgroundColor: const Color(0xFF0F0F14),
       appBar: AppBar(
         backgroundColor: const Color(0xFF0F0F14),
         title: Row(children: [
-          const Text('Estudiar con IA', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+          Text(l10n.iaTitle, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
           const SizedBox(width: 8),
           if (_busquedasRestantes < 999)
             GestureDetector(
@@ -1281,7 +1283,9 @@ class _IAPageState extends State<IAPage> {
                   ),
                   const SizedBox(width: 3),
                   Text(
-                    _busquedasRestantes == 0 ? 'Agotadas' : '$_busquedasRestantes hoy',
+                    _busquedasRestantes == 0
+                        ? l10n.iaSearchesExhausted
+                        : l10n.iaSearchesToday(_busquedasRestantes),
                     style: TextStyle(
                       color: _busquedasRestantes == 0
                           ? const Color(0xFFF7584A)
@@ -1299,7 +1303,7 @@ class _IAPageState extends State<IAPage> {
           if (_chatMensajes.isNotEmpty)
             IconButton(
               icon: const Icon(Icons.delete_outline, color: Colors.white38, size: 20),
-              tooltip: 'Limpiar chat',
+              tooltip: l10n.iaClearChat,
               onPressed: _limpiarChat,
             ),
         ],
@@ -1313,11 +1317,11 @@ class _IAPageState extends State<IAPage> {
             child: SingleChildScrollView(
               scrollDirection: Axis.horizontal,
               child: Row(children: [
-                _modoBtn('Estudiar', Icons.book, 0),
-                _modoBtn('Scanner', Icons.camera_alt, 1),
-                _modoBtn('Docs', Icons.description, 2),
-                _modoBtn('Simulacro', Icons.quiz, 3),
-                _modoBtn('Herramientas', Icons.build_circle_outlined, 4),
+                _modoBtn(l10n.iaModeStudy, Icons.book, 0),
+                _modoBtn(l10n.iaModeScanner, Icons.camera_alt, 1),
+                _modoBtn(l10n.iaModeDocs, Icons.description, 2),
+                _modoBtn(l10n.iaModeSim, Icons.quiz, 3),
+                _modoBtn(l10n.iaModeTools, Icons.build_circle_outlined, 4),
               ]),
             ),
           ),
@@ -1357,10 +1361,11 @@ class _IAPageState extends State<IAPage> {
   }
 
   Widget _buildScanner() {
+    final l10n = context.l10n;
     return SingleChildScrollView(
       padding: const EdgeInsets.all(20),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        const Text('PASO 1 — ¿Qué necesitas?', style: TextStyle(color: Colors.white70, fontSize: 11, fontWeight: FontWeight.w600, letterSpacing: 1)),
+        Text(l10n.iaScanStep1, style: const TextStyle(color: Colors.white70, fontSize: 11, fontWeight: FontWeight.w600, letterSpacing: 1)),
         const SizedBox(height: 8),
         Container(
           decoration: BoxDecoration(color: const Color(0xFF1E1E2A), borderRadius: BorderRadius.circular(14), border: Border.all(color: const Color(0xFF7C6AF7).withOpacity(0.4))),
@@ -1368,16 +1373,16 @@ class _IAPageState extends State<IAPage> {
             controller: _preguntaScannerController,
             style: const TextStyle(color: Colors.white),
             maxLines: 3, minLines: 1,
-            decoration: const InputDecoration(hintText: 'Ej: Resúmeme esto, Resuelve los ejercicios...', hintStyle: TextStyle(color: Colors.white38, fontSize: 13), contentPadding: EdgeInsets.all(14), border: InputBorder.none),
+            decoration: InputDecoration(hintText: l10n.iaScanHint, hintStyle: const TextStyle(color: Colors.white38, fontSize: 13), contentPadding: const EdgeInsets.all(14), border: InputBorder.none),
           ),
         ),
         const SizedBox(height: 16),
-        const Text('PASO 2 — Carga archivo o envía solo texto', style: TextStyle(color: Colors.white70, fontSize: 11, fontWeight: FontWeight.w600, letterSpacing: 1)),
+        Text(l10n.iaScanStep2, style: const TextStyle(color: Colors.white70, fontSize: 11, fontWeight: FontWeight.w600, letterSpacing: 1)),
         const SizedBox(height: 8),
         Row(children: [
-          Expanded(child: GestureDetector(onTap: () => _tomarFoto(ImageSource.camera), child: _scanBtn('Cámara', Icons.camera_alt, const Color(0xFF7C6AF7), true))),
+          Expanded(child: GestureDetector(onTap: () => _tomarFoto(ImageSource.camera), child: _scanBtn(l10n.iaScanCamera, Icons.camera_alt, const Color(0xFF7C6AF7), true))),
           const SizedBox(width: 8),
-          Expanded(child: GestureDetector(onTap: () => _tomarFoto(ImageSource.gallery), child: _scanBtn('Galería', Icons.photo_library, const Color(0xFF7C6AF7), false))),
+          Expanded(child: GestureDetector(onTap: () => _tomarFoto(ImageSource.gallery), child: _scanBtn(l10n.iaScanGallery, Icons.photo_library, const Color(0xFF7C6AF7), false))),
           const SizedBox(width: 8),
           Expanded(child: GestureDetector(onTap: _subirPDF, child: _scanBtn('PDF', Icons.picture_as_pdf, const Color(0xFFF7584A), false))),
         ]),
@@ -1388,10 +1393,10 @@ class _IAPageState extends State<IAPage> {
             width: double.infinity,
             padding: const EdgeInsets.symmetric(vertical: 12),
             decoration: BoxDecoration(color: const Color(0xFF1E1E2A), borderRadius: BorderRadius.circular(12), border: Border.all(color: const Color(0xFF5DE0C5).withOpacity(0.4))),
-            child: const Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-              Icon(Icons.send, color: Color(0xFF5DE0C5), size: 18),
-              SizedBox(width: 8),
-              Text('Enviar solo texto (sin imagen)', style: TextStyle(color: Color(0xFF5DE0C5), fontSize: 13, fontWeight: FontWeight.w600)),
+            child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+              const Icon(Icons.send, color: Color(0xFF5DE0C5), size: 18),
+              const SizedBox(width: 8),
+              Text(l10n.iaScanSendText, style: const TextStyle(color: Color(0xFF5DE0C5), fontSize: 13, fontWeight: FontWeight.w600)),
             ]),
           ),
         ),
@@ -1403,7 +1408,7 @@ class _IAPageState extends State<IAPage> {
           const SizedBox(height: 20),
           const Center(child: CircularProgressIndicator(color: Color(0xFF7C6AF7))),
           const SizedBox(height: 8),
-          const Center(child: Text('Analizando...', style: TextStyle(color: Colors.white54))),
+          Center(child: Text(l10n.iaAnalyzing, style: const TextStyle(color: Colors.white54))),
         ],
         if (_respuestaImagen.isNotEmpty) ...[
           const SizedBox(height: 16),
@@ -1411,7 +1416,7 @@ class _IAPageState extends State<IAPage> {
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(color: const Color(0xFF1E1E2A), borderRadius: BorderRadius.circular(12), border: Border.all(color: const Color(0xFF5DE0C5).withOpacity(0.3))),
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              const Row(children: [Icon(Icons.auto_awesome, color: Color(0xFF5DE0C5), size: 16), SizedBox(width: 8), Text('Respuesta de la IA', style: TextStyle(color: Color(0xFF5DE0C5), fontWeight: FontWeight.bold))]),
+              Row(children: [const Icon(Icons.auto_awesome, color: Color(0xFF5DE0C5), size: 16), const SizedBox(width: 8), Text(l10n.iaAIResponse, style: const TextStyle(color: Color(0xFF5DE0C5), fontWeight: FontWeight.bold))]),
               const SizedBox(height: 12),
               Text(_respuestaImagen.replaceAll('###', '').replaceAll('##', '').replaceAll('#', '').replaceAll('**', '').replaceAll('*', ''), style: const TextStyle(color: Colors.white, fontSize: 14, height: 1.6)),
               const SizedBox(height: 12),
@@ -1422,7 +1427,7 @@ class _IAPageState extends State<IAPage> {
                     child: Container(
                       padding: const EdgeInsets.symmetric(vertical: 10),
                       decoration: BoxDecoration(color: const Color(0xFFF7584A).withOpacity(0.15), borderRadius: BorderRadius.circular(8), border: Border.all(color: const Color(0xFFF7584A).withOpacity(0.3))),
-                      child: const Row(mainAxisAlignment: MainAxisAlignment.center, children: [Icon(Icons.download, color: Color(0xFFF7584A), size: 14), SizedBox(width: 4), Text('Guardar PDF', style: TextStyle(color: Color(0xFFF7584A), fontSize: 12, fontWeight: FontWeight.w600))]),
+                      child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [const Icon(Icons.download, color: Color(0xFFF7584A), size: 14), const SizedBox(width: 4), Text(l10n.iaSavePDF, style: const TextStyle(color: Color(0xFFF7584A), fontSize: 12, fontWeight: FontWeight.w600))]),
                     ),
                   ),
                 ),
@@ -1433,7 +1438,7 @@ class _IAPageState extends State<IAPage> {
                     child: Container(
                       padding: const EdgeInsets.symmetric(vertical: 10),
                       decoration: BoxDecoration(color: const Color(0xFF7C6AF7).withOpacity(0.15), borderRadius: BorderRadius.circular(8), border: Border.all(color: const Color(0xFF7C6AF7).withOpacity(0.3))),
-                      child: const Center(child: Text('Nueva consulta', style: TextStyle(color: Color(0xFF7C6AF7), fontSize: 13, fontWeight: FontWeight.w600))),
+                      child: Center(child: Text(l10n.iaNewQuery, style: const TextStyle(color: Color(0xFF7C6AF7), fontSize: 13, fontWeight: FontWeight.w600))),
                     ),
                   ),
                 ),
@@ -2108,7 +2113,7 @@ class _IAPageState extends State<IAPage> {
           itemCount: _chatHerramientas.length + (_cargandoChatHerramientas ? 1 : 0),
           itemBuilder: (context, i) {
             if (i == _chatHerramientas.length) {
-              return const Padding(padding: EdgeInsets.only(left: 8, bottom: 6), child: Row(children: [SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFF7C6AF7))), SizedBox(width: 8), Text('Analizando...', style: TextStyle(color: Colors.white38, fontSize: 12))]));
+              return Padding(padding: const EdgeInsets.only(left: 8, bottom: 6), child: Row(children: [const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFF7C6AF7))), const SizedBox(width: 8), Text(context.l10n.iaAnalyzing, style: const TextStyle(color: Colors.white38, fontSize: 12))]));
             }
             final msg = _chatHerramientas[i];
             final esUsuario = msg['role'] == 'user';

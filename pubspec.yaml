@@ -2,12 +2,15 @@ name: app_universitaria
 description: "EstudiApp — Organizador académico con IA para universitarios."
 publish_to: 'none'
 
-version: 1.8.7+83
+version: 1.8.9+85
 
 environment:
   sdk: ^3.6.2
 
 dependencies:
+  flutter_localizations:
+    sdk: flutter
+  intl: ^0.20.2
   cupertino_icons: ^1.0.8
   flutter_local_notifications: ^19.5.0
   firebase_core: ^4.5.0
@@ -33,6 +36,7 @@ dependencies:
   in_app_purchase: ^3.2.0
   firebase_messaging: ^16.1.2
   firebase_crashlytics: ^5.0.8
+  in_app_review: ^2.0.9
 
 dev_dependencies:
   flutter_test:
@@ -40,6 +44,7 @@ dev_dependencies:
   flutter_lints: ^5.0.0
 
 flutter:
+  generate: true
   uses-material-design: true
 
 flutter_launcher_icons:

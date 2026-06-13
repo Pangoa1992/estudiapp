@@ -5,6 +5,7 @@ import 'models/mision_model.dart';
 import 'services/misiones_service.dart';
 import 'services/niveles_service.dart';
 import 'widgets/celebracion_widget.dart';
+import 'l10n_helper.dart';
 
 class MisionesPage extends StatefulWidget {
   const MisionesPage({super.key});
@@ -75,11 +76,12 @@ class _MisionesPageState extends State<MisionesPage> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     return Scaffold(
       backgroundColor: const Color(0xFF0F0F14),
       appBar: AppBar(
-        title: const Text('Misiones',
-            style: TextStyle(
+        title: Text(l10n.missionsTitle,
+            style: const TextStyle(
                 color: Colors.white,
                 fontSize: 20,
                 fontWeight: FontWeight.bold)),
@@ -102,34 +104,34 @@ class _MisionesPageState extends State<MisionesPage> {
               child: ListView(
                 padding: const EdgeInsets.all(16),
                 children: [
-                  _buildNivelBanner(),
+                  _buildNivelBanner(l10n),
                   const SizedBox(height: 20),
                   _buildSeccion(
-                    titulo: 'MISIONES DIARIAS',
+                    titulo: l10n.dailyMissions,
                     icono: '☀️',
-                    subtitulo: 'Se renuevan cada día',
+                    subtitulo: l10n.dailyRenewal,
                     misiones: _diarias,
                     esSemanal: false,
+                    l10n: l10n,
                   ),
                   const SizedBox(height: 20),
                   _buildSeccion(
-                    titulo: 'MISIONES SEMANALES',
+                    titulo: l10n.weeklyMissions,
                     icono: '📅',
-                    subtitulo: 'Se renuevan cada lunes',
+                    subtitulo: l10n.weeklyRenewal,
                     misiones: _semanales,
                     esSemanal: true,
+                    l10n: l10n,
                   ),
                   const SizedBox(height: 24),
-                  _buildTipXP(),
+                  _buildTipXP(l10n),
                 ],
               ),
             ),
     );
   }
 
-  // ── Widgets ────────────────────────────────────────────────────────────────
-
-  Widget _buildNivelBanner() {
+  Widget _buildNivelBanner(AppLocalizations l10n) {
     return StreamBuilder<DocumentSnapshot>(
       stream: _uid.isNotEmpty
           ? _db.collection('perfiles').doc(_uid).snapshots()
@@ -161,9 +163,9 @@ class _MisionesPageState extends State<MisionesPage> {
                   Container(
                     width: 56,
                     height: 56,
-                    decoration: BoxDecoration(
+                    decoration: const BoxDecoration(
                       shape: BoxShape.circle,
-                      gradient: const RadialGradient(colors: [
+                      gradient: RadialGradient(colors: [
                         Color(0xFF9D8FFF),
                         Color(0xFF5A4ED4),
                       ]),
@@ -178,13 +180,13 @@ class _MisionesPageState extends State<MisionesPage> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text('Nivel $nivel — $nombre',
+                        Text(l10n.levelTitle(nivel, nombre),
                             style: const TextStyle(
                                 color: Colors.white,
                                 fontSize: 16,
                                 fontWeight: FontWeight.bold)),
                         const SizedBox(height: 4),
-                        Text('$xpEnNivel / $xpSiguiente XP',
+                        Text(l10n.xpProgress(xpEnNivel, xpSiguiente),
                             style: const TextStyle(
                                 color: Color(0xFF9D8FFF), fontSize: 12)),
                       ],
@@ -235,6 +237,7 @@ class _MisionesPageState extends State<MisionesPage> {
     required String subtitulo,
     required List<Mision> misiones,
     required bool esSemanal,
+    required AppLocalizations l10n,
   }) {
     final completadas = misiones.where((m) => m.reclamada).length;
     return Column(
@@ -268,12 +271,13 @@ class _MisionesPageState extends State<MisionesPage> {
               mision: m,
               onReclamar: () => _reclamar(m, esSemanal),
               reclamando: _reclamando,
+              claimLabel: l10n.claimBtn,
             )),
       ],
     );
   }
 
-  Widget _buildTipXP() {
+  Widget _buildTipXP(AppLocalizations l10n) {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -281,22 +285,22 @@ class _MisionesPageState extends State<MisionesPage> {
         borderRadius: BorderRadius.circular(14),
         border: Border.all(color: const Color(0xFF7C6AF7).withOpacity(0.2)),
       ),
-      child: const Column(
+      child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(children: [
-            Text('⚡', style: TextStyle(fontSize: 16)),
-            SizedBox(width: 6),
-            Text('Cómo ganar XP',
-                style: TextStyle(
+            const Text('⚡', style: TextStyle(fontSize: 16)),
+            const SizedBox(width: 6),
+            Text(l10n.howToEarnXP,
+                style: const TextStyle(
                     color: Colors.white,
                     fontWeight: FontWeight.w600,
                     fontSize: 13)),
           ]),
-          SizedBox(height: 10),
-          _TipRow('Completar misiones diarias', '+10–50 XP'),
-          _TipRow('Completar misiones semanales', '+80–250 XP'),
-          _TipRow('Recompensa de inicio diario', '+25 XP'),
+          const SizedBox(height: 10),
+          _TipRow(l10n.tipDailyMission, '+10–50 XP'),
+          _TipRow(l10n.tipWeeklyMission, '+80–250 XP'),
+          _TipRow(l10n.tipDailyLogin, '+25 XP'),
         ],
       ),
     );
@@ -329,17 +333,17 @@ class _TipRow extends StatelessWidget {
   }
 }
 
-// ── Tarjeta de misión ──────────────────────────────────────────────────────
-
 class _MisionCard extends StatelessWidget {
   final Mision mision;
   final VoidCallback onReclamar;
   final bool reclamando;
+  final String claimLabel;
 
   const _MisionCard({
     required this.mision,
     required this.onReclamar,
     required this.reclamando,
+    required this.claimLabel,
   });
 
   @override
@@ -390,7 +394,6 @@ class _MisionCard extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 10),
-          // Barra de progreso
           Stack(
             children: [
               Container(
@@ -452,7 +455,7 @@ class _MisionCard extends StatelessWidget {
                       borderRadius: BorderRadius.circular(20),
                     ),
                     child: Text(
-                      reclamando ? '...' : 'Reclamar',
+                      reclamando ? '...' : claimLabel,
                       style: const TextStyle(
                           color: Color(0xFF1A1A10),
                           fontSize: 12,

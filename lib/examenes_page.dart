@@ -5,6 +5,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'notificaciones_service.dart';
 import 'cache_service.dart';
 import 'calendar_sync_service.dart';
+import 'l10n_helper.dart';
 
 class ExamenesPage extends StatefulWidget {
   const ExamenesPage({super.key});
@@ -47,6 +48,7 @@ class _ExamenesPageState extends State<ExamenesPage> {
   }
 
   Future<void> _sincronizarConCalendar() async {
+    final l10n = context.l10n;
     setState(() => _sincronizando = true);
     int exportados = 0;
     try {
@@ -74,8 +76,8 @@ class _ExamenesPageState extends State<ExamenesPage> {
         SnackBar(
           content: Text(
             exportados > 0
-                ? '$exportados examen(es) exportado(s) a Google Calendar'
-                : 'No se exportaron examenes (verifica permisos o si hay proximos)',
+                ? l10n.exportedN(exportados)
+                : l10n.noExportsMsg,
           ),
           backgroundColor:
               exportados > 0 ? const Color(0xFF5DE0C5) : const Color(0xFFF7584A),
@@ -84,9 +86,9 @@ class _ExamenesPageState extends State<ExamenesPage> {
     } catch (_) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Error al conectar con Google Calendar'),
-          backgroundColor: Color(0xFFF7584A),
+        SnackBar(
+          content: Text(l10n.calendarError),
+          backgroundColor: const Color(0xFFF7584A),
         ),
       );
     } finally {
@@ -95,6 +97,7 @@ class _ExamenesPageState extends State<ExamenesPage> {
   }
 
   void _mostrarFormulario({Map<String, dynamic>? examen, String? docId}) {
+    final l10n = context.l10n;
     final cursoController = TextEditingController(text: examen?['curso'] ?? '');
     final notasController = TextEditingController(text: examen?['notas'] ?? '');
     final horaController = TextEditingController(text: examen?['hora'] ?? '');
@@ -118,14 +121,14 @@ class _ExamenesPageState extends State<ExamenesPage> {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(examen == null ? 'Nuevo examen' : 'Editar examen',
+                Text(examen == null ? l10n.newExam : l10n.editExam,
                     style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
                 const SizedBox(height: 16),
                 TextField(
                   controller: cursoController,
                   style: const TextStyle(color: Colors.white),
                   decoration: InputDecoration(
-                    labelText: 'Nombre del curso',
+                    labelText: l10n.courseNameLabel,
                     labelStyle: const TextStyle(color: Color(0xFF7C6AF7)),
                     filled: true,
                     fillColor: const Color(0xFF0F0F14),
@@ -159,7 +162,6 @@ class _ExamenesPageState extends State<ExamenesPage> {
                   ),
                 ),
                 const SizedBox(height: 12),
-                // ── SELECTOR DE HORA CON RELOJ ──
                 GestureDetector(
                   onTap: () async {
                     final tiempo = await showTimePicker(
@@ -194,7 +196,7 @@ class _ExamenesPageState extends State<ExamenesPage> {
                         const Icon(Icons.access_time, color: Color(0xFF7C6AF7), size: 20),
                         const SizedBox(width: 10),
                         Text(
-                          horaController.text.isEmpty ? 'Seleccionar hora del examen' : horaController.text,
+                          horaController.text.isEmpty ? l10n.selectExamTime : horaController.text,
                           style: TextStyle(
                             color: horaController.text.isEmpty ? Colors.white38 : Colors.white,
                             fontSize: 15,
@@ -212,7 +214,7 @@ class _ExamenesPageState extends State<ExamenesPage> {
                   style: const TextStyle(color: Colors.white),
                   maxLines: 4,
                   decoration: InputDecoration(
-                    labelText: 'Notas del examen (temas, apuntes...)',
+                    labelText: l10n.examNotesLabel,
                     labelStyle: const TextStyle(color: Color(0xFF7C6AF7)),
                     filled: true,
                     fillColor: const Color(0xFF0F0F14),
@@ -228,14 +230,14 @@ class _ExamenesPageState extends State<ExamenesPage> {
                     borderRadius: BorderRadius.circular(8),
                     border: Border.all(color: const Color(0xFF7C6AF7).withOpacity(0.3)),
                   ),
-                  child: const Row(
+                  child: Row(
                     children: [
-                      Icon(Icons.notifications_active, color: Color(0xFF7C6AF7), size: 16),
-                      SizedBox(width: 8),
+                      const Icon(Icons.notifications_active, color: Color(0xFF7C6AF7), size: 16),
+                      const SizedBox(width: 8),
                       Expanded(
                         child: Text(
-                          'Recibirás alertas 2 días antes, 1 día antes y el mismo día del examen',
-                          style: TextStyle(color: Colors.white54, fontSize: 11),
+                          l10n.notifAlert,
+                          style: const TextStyle(color: Colors.white54, fontSize: 11),
                         ),
                       ),
                     ],
@@ -263,7 +265,6 @@ class _ExamenesPageState extends State<ExamenesPage> {
                         final ref = await _db.collection('examenes').add(data);
                         examenId = ref.id;
                       }
-                      // Programar notificaciones
                       await NotificacionesService.programarNotificacionesExamen(
                         id: examenId.hashCode.abs(),
                         curso: cursoController.text,
@@ -277,7 +278,7 @@ class _ExamenesPageState extends State<ExamenesPage> {
                       padding: const EdgeInsets.symmetric(vertical: 14),
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                     ),
-                    child: Text(examen == null ? 'Agregar examen' : 'Guardar cambios',
+                    child: Text(examen == null ? l10n.addExamBtn : l10n.saveChanges,
                         style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
                   ),
                 ),
@@ -290,6 +291,7 @@ class _ExamenesPageState extends State<ExamenesPage> {
   }
 
   void _mostrarDialogoNota(String docId, String nombreCurso) {
+    final l10n = context.l10n;
     double nota = 0;
     showDialog(
       context: context,
@@ -302,8 +304,8 @@ class _ExamenesPageState extends State<ExamenesPage> {
             backgroundColor: const Color(0xFF1E1E2A),
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
             title: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              const Text('¡Examen completado! 🎓',
-                  style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
+              Text(l10n.examCompleted,
+                  style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
               Text(nombreCurso,
                   style: const TextStyle(color: Colors.white54, fontSize: 12)),
             ]),
@@ -311,10 +313,10 @@ class _ExamenesPageState extends State<ExamenesPage> {
               Text('$notaInt',
                   style: TextStyle(
                       color: col, fontSize: 56, fontWeight: FontWeight.bold)),
-              Text('/ 20',
-                  style: const TextStyle(color: Colors.white38, fontSize: 16)),
+              const Text('/ 20',
+                  style: TextStyle(color: Colors.white38, fontSize: 16)),
               const SizedBox(height: 4),
-              Text(aprobado ? '¡Aprobado! 🎉' : 'No aprobado 💪',
+              Text(aprobado ? l10n.approved : l10n.notApproved,
                   style: TextStyle(
                       color: col, fontSize: 13, fontWeight: FontWeight.w600)),
               const SizedBox(height: 16),
@@ -338,8 +340,8 @@ class _ExamenesPageState extends State<ExamenesPage> {
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(context),
-                child: const Text('Cancelar',
-                    style: TextStyle(color: Colors.white38)),
+                child: Text(l10n.cancel,
+                    style: const TextStyle(color: Colors.white38)),
               ),
               ElevatedButton(
                 onPressed: () {
@@ -352,8 +354,8 @@ class _ExamenesPageState extends State<ExamenesPage> {
                 },
                 style: ElevatedButton.styleFrom(
                     backgroundColor: const Color(0xFF7C6AF7)),
-                child: const Text('Guardar',
-                    style: TextStyle(
+                child: Text(l10n.save,
+                    style: const TextStyle(
                         color: Colors.white, fontWeight: FontWeight.bold)),
               ),
             ],
@@ -364,6 +366,7 @@ class _ExamenesPageState extends State<ExamenesPage> {
   }
 
   void _mostrarNotas(Map<String, dynamic> data, String docId) {
+    final l10n = context.l10n;
     final completado = data['completado'] == true;
     final nota = data['nota'] as int?;
     final aprobado = nota != null ? nota >= 11 : null;
@@ -394,7 +397,6 @@ class _ExamenesPageState extends State<ExamenesPage> {
                         color: Colors.white54, fontSize: 13)),
               ]),
             ],
-            // Nota si completado
             if (completado && nota != null) ...[
               const SizedBox(height: 12),
               Container(
@@ -418,14 +420,14 @@ class _ExamenesPageState extends State<ExamenesPage> {
                   Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text('Nota: $nota / 20',
+                        Text(l10n.scoreLabel(nota),
                             style: TextStyle(
                                 color: aprobado
                                     ? const Color(0xFF5DE0C5)
                                     : const Color(0xFFF7584A),
                                 fontSize: 18,
                                 fontWeight: FontWeight.bold)),
-                        Text(aprobado ? '¡Aprobado!' : 'No aprobado',
+                        Text(aprobado ? l10n.approvedShort : l10n.notApprovedShort,
                             style: TextStyle(
                                 color: aprobado
                                     ? const Color(0xFF5DE0C5)
@@ -436,8 +438,8 @@ class _ExamenesPageState extends State<ExamenesPage> {
               ),
             ],
             const SizedBox(height: 12),
-            const Text('Notas:',
-                style: TextStyle(color: Colors.white54, fontSize: 12)),
+            Text(l10n.notesLabel,
+                style: const TextStyle(color: Colors.white54, fontSize: 12)),
             const SizedBox(height: 8),
             Container(
               padding: const EdgeInsets.all(14),
@@ -445,7 +447,7 @@ class _ExamenesPageState extends State<ExamenesPage> {
                   color: const Color(0xFF0F0F14),
                   borderRadius: BorderRadius.circular(12)),
               child: Text(
-                data['notas']?.isNotEmpty == true ? data['notas'] : 'Sin notas',
+                data['notas']?.isNotEmpty == true ? data['notas'] : l10n.noNotes,
                 style: const TextStyle(
                     color: Colors.white, fontSize: 14, height: 1.5),
               ),
@@ -460,8 +462,8 @@ class _ExamenesPageState extends State<ExamenesPage> {
                     _mostrarDialogoNota(docId, data['curso'] ?? '');
                   },
                   icon: const Icon(Icons.check_circle, color: Colors.white),
-                  label: const Text('Marcar como completado',
-                      style: TextStyle(color: Colors.white)),
+                  label: Text(l10n.examCompleted,
+                      style: const TextStyle(color: Colors.white)),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: const Color(0xFF5DE0C5),
                     padding: const EdgeInsets.symmetric(vertical: 14),
@@ -478,11 +480,12 @@ class _ExamenesPageState extends State<ExamenesPage> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     return Scaffold(
       backgroundColor: const Color(0xFF0F0F14),
       appBar: AppBar(
         backgroundColor: const Color(0xFF0F0F14),
-        title: const Text('Mis examenes', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+        title: Text(l10n.myExams, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
         iconTheme: const IconThemeData(color: Colors.white),
         actions: [
           _sincronizando
@@ -497,13 +500,13 @@ class _ExamenesPageState extends State<ExamenesPage> {
                 )
               : IconButton(
                   icon: const Icon(Icons.calendar_month, color: Color(0xFF5DE0C5)),
-                  tooltip: 'Exportar a Google Calendar',
+                  tooltip: l10n.exportCalendar,
                   onPressed: _sincronizarConCalendar,
                 ),
           TextButton(
             onPressed: () => setState(() => _mostrarCompletados = !_mostrarCompletados),
             child: Text(
-              _mostrarCompletados ? 'Proximos' : 'Completados',
+              _mostrarCompletados ? l10n.upcomingExamsTitle : l10n.showCompleted,
               style: const TextStyle(color: Color(0xFF7C6AF7), fontSize: 12),
             ),
           ),
@@ -535,11 +538,13 @@ class _ExamenesPageState extends State<ExamenesPage> {
                   ),
                   const SizedBox(height: 12),
                   Text(
-                    _mostrarCompletados ? 'No hay examenes completados' : 'No tienes examenes proximos',
+                    _mostrarCompletados
+                        ? l10n.showCompleted
+                        : l10n.myExams,
                     style: const TextStyle(color: Colors.white38),
                   ),
                   if (!_mostrarCompletados)
-                    const Text('Toca + para agregar uno', style: TextStyle(color: Colors.white24, fontSize: 12)),
+                    Text(l10n.tapPlusToAdd, style: const TextStyle(color: Colors.white24, fontSize: 12)),
                 ],
               ),
             );
@@ -618,7 +623,7 @@ class _ExamenesPageState extends State<ExamenesPage> {
                                     ),
                                   ),
                                   Text(
-                                    (data['nota'] as int) >= 11 ? 'Aprobado' : 'No aprobado',
+                                    (data['nota'] as int) >= 11 ? l10n.approvedShort : l10n.notApprovedShort,
                                     style: TextStyle(
                                       color: (data['nota'] as int) >= 11
                                           ? const Color(0xFF5DE0C5)
@@ -629,7 +634,7 @@ class _ExamenesPageState extends State<ExamenesPage> {
                                 ])
                               : const Icon(Icons.check_circle, color: Color(0xFF5DE0C5), size: 20)
                           : Text(
-                              dias <= 0 ? 'Hoy' : dias == 1 ? 'Mañana' : '$dias dias',
+                              dias <= 0 ? l10n.todayShort : dias == 1 ? l10n.tomorrowShort : l10n.daysShort(dias),
                               style: TextStyle(color: color, fontWeight: FontWeight.bold, fontSize: 16),
                             ),
                       const SizedBox(width: 8),
@@ -638,15 +643,15 @@ class _ExamenesPageState extends State<ExamenesPage> {
                         color: const Color(0xFF1E1E2A),
                         itemBuilder: (_) => [
                           PopupMenuItem(
-                            child: const Text('Editar', style: TextStyle(color: Colors.white)),
+                            child: Text(l10n.edit, style: const TextStyle(color: Colors.white)),
                             onTap: () => Future.delayed(Duration.zero,
                                 () => _mostrarFormulario(examen: data, docId: doc.id)),
                           ),
                           PopupMenuItem(
-                            child: const Row(children: [
-                              Icon(Icons.calendar_month, color: Color(0xFF5DE0C5), size: 16),
-                              SizedBox(width: 8),
-                              Text('Exportar a Calendar', style: TextStyle(color: Color(0xFF5DE0C5))),
+                            child: Row(children: [
+                              const Icon(Icons.calendar_month, color: Color(0xFF5DE0C5), size: 16),
+                              const SizedBox(width: 8),
+                              Text(l10n.exportCalendar, style: const TextStyle(color: Color(0xFF5DE0C5))),
                             ]),
                             onTap: () => Future.delayed(Duration.zero, () async {
                               final ok = await CalendarSyncService.exportarExamen(
@@ -659,8 +664,8 @@ class _ExamenesPageState extends State<ExamenesPage> {
                               ScaffoldMessenger.of(context).showSnackBar(
                                 SnackBar(
                                   content: Text(ok
-                                      ? 'Examen exportado a Google Calendar'
-                                      : 'Error al exportar a Google Calendar'),
+                                      ? l10n.exportedN(1)
+                                      : l10n.calendarError),
                                   backgroundColor: ok
                                       ? const Color(0xFF5DE0C5)
                                       : const Color(0xFFF7584A),
@@ -670,14 +675,14 @@ class _ExamenesPageState extends State<ExamenesPage> {
                           ),
                           if (!completado)
                             PopupMenuItem(
-                              child: const Text('Marcar completado', style: TextStyle(color: Color(0xFF5DE0C5))),
+                              child: Text(l10n.examCompleted, style: const TextStyle(color: Color(0xFF5DE0C5))),
                               onTap: () => Future.delayed(
                                 Duration.zero,
                                 () => _mostrarDialogoNota(doc.id, data['curso'] ?? ''),
                               ),
                             ),
                           PopupMenuItem(
-                            child: const Text('Eliminar', style: TextStyle(color: Colors.redAccent)),
+                            child: Text(l10n.delete, style: const TextStyle(color: Colors.redAccent)),
                             onTap: () {
                               NotificacionesService.cancelarNotificacion(doc.id.hashCode.abs());
                               _db.collection('examenes').doc(doc.id).delete();

@@ -1,6 +1,7 @@
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:timezone/timezone.dart' as tz;
 import 'package:timezone/data/latest.dart' as tz_data;
+import 'services/idioma_service.dart';
 
 class NotificacionesService {
   static final FlutterLocalNotificationsPlugin _plugin =
@@ -77,8 +78,8 @@ class NotificacionesService {
 
       await _plugin.zonedSchedule(
         id,
-        '⏰ Hora de tu habito!',
-        'Es momento de: $nombre',
+        IdiomaService.t('⏰ Hora de tu habito!', '⏰ Time for your habit!'),
+        IdiomaService.t('Es momento de: $nombre', 'Time for: $nombre'),
         programado,
         NotificationDetails(android: _androidHabitos),
         androidScheduleMode: AndroidScheduleMode.alarmClock,
@@ -123,8 +124,8 @@ class NotificacionesService {
         await _plugin.cancel(base);
         await _plugin.zonedSchedule(
           base,
-          '📚 Hoy es tu examen!',
-          'Tu examen de $curso empieza hoy. Mucho exito!',
+          IdiomaService.t('📚 Hoy es tu examen!', '📚 Your exam is today!'),
+          IdiomaService.t('Tu examen de $curso empieza hoy. Mucho exito!', 'Your $curso exam starts today. Good luck!'),
           mismodia,
           NotificationDetails(android: _androidExamenes),
           androidScheduleMode: AndroidScheduleMode.alarmClock,
@@ -143,8 +144,8 @@ class NotificacionesService {
         await _plugin.cancel(base + 30000);
         await _plugin.zonedSchedule(
           base + 30000,
-          '⚠️ Examen en 2 dias!',
-          'Tu examen de $curso es pasado manana. Estudia hoy!',
+          IdiomaService.t('⚠️ Examen en 2 dias!', '⚠️ Exam in 2 days!'),
+          IdiomaService.t('Tu examen de $curso es pasado manana. Estudia hoy!', 'Your $curso exam is the day after tomorrow. Study today!'),
           dosAntes,
           NotificationDetails(android: _androidExamenes),
           androidScheduleMode: AndroidScheduleMode.alarmClock,
@@ -163,8 +164,8 @@ class NotificacionesService {
         await _plugin.cancel(base + 60000);
         await _plugin.zonedSchedule(
           base + 60000,
-          '🚨 Examen manana!',
-          'Tu examen de $curso es manana. Repasa bien hoy!',
+          IdiomaService.t('🚨 Examen manana!', '🚨 Exam tomorrow!'),
+          IdiomaService.t('Tu examen de $curso es manana. Repasa bien hoy!', 'Your $curso exam is tomorrow. Review well today!'),
           unAntes,
           NotificationDetails(android: _androidExamenes),
           androidScheduleMode: AndroidScheduleMode.alarmClock,
@@ -252,14 +253,14 @@ class NotificacionesService {
         String titulo;
         String cuerpo;
         if (diasRestantes == 0) {
-          titulo = '🎯 ¡Hoy es tu examen de $curso!';
-          cuerpo = 'Ya es el día. Repasa tus notas rápidas y confía en ti.';
+          titulo = IdiomaService.t('🎯 ¡Hoy es tu examen de $curso!', '🎯 Today is your $curso exam!');
+          cuerpo = IdiomaService.t('Ya es el día. Repasa tus notas rápidas y confía en ti.', "It's the day. Review your quick notes and trust yourself.");
         } else if (diasRestantes == 1) {
-          titulo = '📖 Mañana: $curso';
-          cuerpo = 'Haz un repaso final esta noche. ¡Tú puedes!';
+          titulo = IdiomaService.t('📖 Mañana: $curso', '📖 Tomorrow: $curso');
+          cuerpo = IdiomaService.t('Haz un repaso final esta noche. ¡Tú puedes!', 'Do a final review tonight. You got this!');
         } else {
-          titulo = '📚 Estudia $curso hoy';
-          cuerpo = 'Faltan $diasRestantes días. Un repaso ahora vale mucho.';
+          titulo = IdiomaService.t('📚 Estudia $curso hoy', '📚 Study $curso today');
+          cuerpo = IdiomaService.t('Faltan $diasRestantes días. Un repaso ahora vale mucho.', '$diasRestantes days left. A review now goes a long way.');
         }
         await _plugin.zonedSchedule(
           idBase,
@@ -279,8 +280,8 @@ class NotificacionesService {
             .add(const Duration(days: 1));
         await _plugin.zonedSchedule(
           idBase,
-          '☀️ Buenos días — Examen de $curso en $diasRestantes días',
-          'Empieza temprano: estudia al menos 30 minutos hoy.',
+          IdiomaService.t('☀️ Buenos días — Examen de $curso en $diasRestantes días', '☀️ Good morning — $curso exam in $diasRestantes days'),
+          IdiomaService.t('Empieza temprano: estudia al menos 30 minutos hoy.', 'Start early: study at least 30 minutes today.'),
           manana9am,
           NotificationDetails(android: _androidInteligente),
           androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
@@ -295,8 +296,8 @@ class NotificacionesService {
       if (hoy9pm.isAfter(ahora) && idBase < 90020) {
         await _plugin.zonedSchedule(
           idBase,
-          '🔥 ¡No pierdas tu racha de $racha días!',
-          'Completa aunque sea una actividad hoy para mantener la racha.',
+          IdiomaService.t('🔥 ¡No pierdas tu racha de $racha días!', '🔥 Don\'t lose your $racha-day streak!'),
+          IdiomaService.t('Completa aunque sea una actividad hoy para mantener la racha.', 'Complete at least one activity today to keep your streak.'),
           hoy9pm,
           NotificationDetails(android: _androidInteligente),
           androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
@@ -311,13 +312,59 @@ class NotificacionesService {
       if (hoy7pm.isAfter(ahora)) {
         await _plugin.zonedSchedule(
           90000,
-          '📚 Hora de estudiar',
-          'Mantén el hábito: 20 minutos al día hacen la diferencia.',
+          IdiomaService.t('📚 Hora de estudiar', '📚 Time to study'),
+          IdiomaService.t('Mantén el hábito: 20 minutos al día hacen la diferencia.', 'Keep the habit: 20 minutes a day makes a difference.'),
           hoy7pm,
           NotificationDetails(android: _androidInteligente),
           androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
         );
       }
     }
+  }
+
+  // ── Recordatorio diario de misiones ───────────────────────────────────────
+  // ID 89000 reservado para este canal.
+
+  static const _androidMisiones = AndroidNotificationDetails(
+    'misiones_canal',
+    'Misiones del día',
+    channelDescription: 'Recordatorio diario de misiones pendientes a las 8 AM',
+    importance: Importance.high,
+    priority: Priority.high,
+    icon: '@mipmap/ic_launcher',
+    playSound: true,
+    enableVibration: true,
+  );
+
+  /// Programa (o reprograma) el recordatorio diario de misiones a las 8 AM.
+  /// [pendientes] es el número de misiones diarias sin reclamar hoy.
+  static Future<void> programarRecordatorioMisiones(int pendientes) async {
+    await _plugin.cancel(89000);
+    final cuerpo = pendientes > 0
+        ? IdiomaService.t(
+            'Tienes $pendientes ${pendientes == 1 ? 'misión' : 'misiones'} pendientes. ¡Gana monedas y XP!',
+            'You have $pendientes ${pendientes == 1 ? 'mission' : 'missions'} pending. Earn coins and XP!',
+          )
+        : IdiomaService.t(
+            '¡Completa tus misiones diarias y gana monedas y XP!',
+            'Complete your daily missions and earn coins and XP!',
+          );
+
+    final ahora = tz.TZDateTime.now(tz.local);
+    var prox8am =
+        tz.TZDateTime(tz.local, ahora.year, ahora.month, ahora.day, 8, 0);
+    if (prox8am.isBefore(ahora)) {
+      prox8am = prox8am.add(const Duration(days: 1));
+    }
+
+    await _plugin.zonedSchedule(
+      89000,
+      IdiomaService.t('🎯 Misiones del día', '🎯 Daily missions'),
+      cuerpo,
+      prox8am,
+      NotificationDetails(android: _androidMisiones),
+      androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
+      matchDateTimeComponents: DateTimeComponents.time,
+    );
   }
 }
