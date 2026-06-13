@@ -218,12 +218,12 @@ class _AdmisionPageState extends State<AdmisionPage>
         ],
       ),
       body: _cargando
-          ? const Center(
+          ? Center(
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  CircularProgressIndicator(color: Color(0xFF7C6AF7)),
-                  SizedBox(height: 16),
+                  const CircularProgressIndicator(color: Color(0xFF7C6AF7)),
+                  const SizedBox(height: 16),
                   Text(context.l10n.generatingAI,
                       style: const TextStyle(color: Colors.white54)),
                 ],
