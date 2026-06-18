@@ -527,8 +527,16 @@ class _IAPageState extends State<IAPage> {
 
   Future<String?> _llamarIAConImagen(String base64Image, String preguntaExtra) async {
     final textoPregunta = preguntaExtra.isNotEmpty
-        ? 'Eres un tutor universitario experto. Analiza esta imagen y además responde lo siguiente: "$preguntaExtra". Resuelve TODO paso a paso en español. Se claro y didactico.'
-        : 'Eres un tutor universitario experto. Analiza esta imagen y resuelve TODO lo que veas paso a paso en español. Se claro y didactico.';
+        ? 'Eres un tutor universitario experto con capacidad OCR avanzada. '
+          'Analiza esta imagen aunque sea borrosa, oscura o tomada en ángulo. '
+          'Primero extrae TODO el texto visible (si algo es ilegible, infiere por contexto y marca con [?]). '
+          'Luego responde: "$preguntaExtra". Resuelve paso a paso en español. Sé claro y didáctico.'
+        : 'Eres un tutor universitario experto con capacidad OCR avanzada. '
+          'Esta imagen puede ser un apunte, libro, ejercicio o examen universitario. '
+          'AUNQUE la imagen sea borrosa, tenga mala iluminación o esté en ángulo: '
+          '1) Extrae e interpreta TODO el texto visible con máxima precisión. '
+          '2) Si algo no está del todo claro, usa el contexto académico para inferirlo y marca con [?] lo que sea definitivamente ilegible. '
+          '3) Resuelve y explica todo paso a paso en español. Sé claro y didáctico.';
     final (data, _) = await _llamarCloudFunction(
       messages: [{'role': 'user', 'content': [
         {'type': 'image', 'source': {'type': 'base64', 'media_type': 'image/jpeg', 'data': base64Image}},
@@ -545,7 +553,7 @@ class _IAPageState extends State<IAPage> {
 
   Future<void> _tomarFoto(ImageSource source) async {
     try {
-      final XFile? imagen = await _picker.pickImage(source: source, imageQuality: 70, maxWidth: 1024);
+      final XFile? imagen = await _picker.pickImage(source: source, imageQuality: 88, maxWidth: 1600);
       if (imagen == null) return;
       if (!await _verificarYConsumir()) return; // ── LÍMITE DIARIO
       setState(() { _imagenSeleccionada = File(imagen.path); _respuestaImagen = ''; _cargandoImagen = true; });
@@ -679,8 +687,10 @@ class _IAPageState extends State<IAPage> {
     final tema = _simulacroTemaController.text;
     final cantidad = int.tryParse(_cantidadController.text) ?? 5;
     setState(() { _cargandoSimulacro = true; _preguntasSimulacro = []; _respuestasUsuario = []; _simulacroTerminado = false; _preguntaActual = 0; });
+    final contextoCarrera = CarreraService.contextoIA(_carrera);
+    final prefijoCarrera = contextoCarrera.isNotEmpty ? '$contextoCarrera\n' : '';
     final (respuesta, _) = await _llamarIA(
-      'Genera un simulacro de examen de "$tema" para nivel $_nivelSeleccionado con dificultad $_dificultadSeleccionada. '
+      '${prefijoCarrera}Genera un simulacro de examen de "$tema" para nivel $_nivelSeleccionado con dificultad $_dificultadSeleccionada. '
       'Crea exactamente $cantidad preguntas de opcion multiple. '
       'Responde SOLO con JSON valido sin texto extra. '
       'Formato: {"preguntas": [{"pregunta": "texto", "opciones": ["A. op1", "B. op2", "C. op3", "D. op4"], "correcta": "A", "explicacion": "por que"}]}. '
@@ -1365,6 +1375,23 @@ class _IAPageState extends State<IAPage> {
     return SingleChildScrollView(
       padding: const EdgeInsets.all(20),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Container(
+          padding: const EdgeInsets.all(11),
+          decoration: BoxDecoration(
+            color: const Color(0xFF1A2030),
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: const Color(0xFF5DE0C5).withOpacity(0.25)),
+          ),
+          child: const Row(children: [
+            Icon(Icons.tips_and_updates, color: Color(0xFF5DE0C5), size: 15),
+            SizedBox(width: 8),
+            Expanded(child: Text(
+              'Mejor resultado: buena luz, encuadre recto, texto enfocado. La IA puede leer imágenes borrosas, pero la calidad mejora la precisión.',
+              style: TextStyle(color: Color(0xFF5DE0C5), fontSize: 11, height: 1.4),
+            )),
+          ]),
+        ),
+        const SizedBox(height: 14),
         Text(l10n.iaScanStep1, style: const TextStyle(color: Colors.white70, fontSize: 11, fontWeight: FontWeight.w600, letterSpacing: 1)),
         const SizedBox(height: 8),
         Container(
@@ -2150,11 +2177,59 @@ class _IAPageState extends State<IAPage> {
   }
 
   Widget _buildConfigSimulacro() {
+    final escenarios = CarreraService.escenarios(_carrera);
     return SingleChildScrollView(
       padding: const EdgeInsets.all(20),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Container(padding: const EdgeInsets.all(16), decoration: BoxDecoration(gradient: const LinearGradient(colors: [Color(0xFF2A1F5E), Color(0xFF1A2A1F)]), borderRadius: BorderRadius.circular(16)), child: const Row(children: [Icon(Icons.quiz, color: Color(0xFF7C6AF7), size: 28), SizedBox(width: 12), Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text('Simulacro de Examen', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)), Text('Pon a prueba tus conocimientos', style: TextStyle(color: Colors.white54, fontSize: 12))]))])),
+        Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(gradient: const LinearGradient(colors: [Color(0xFF2A1F5E), Color(0xFF1A2A1F)]), borderRadius: BorderRadius.circular(16)),
+          child: Row(children: [
+            const Icon(Icons.quiz, color: Color(0xFF7C6AF7), size: 28),
+            const SizedBox(width: 12),
+            Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              const Text('Simulacro de Examen', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
+              Text(
+                _carrera.isNotEmpty ? 'Personalizado para $_carrera' : 'Pon a prueba tus conocimientos',
+                style: const TextStyle(color: Colors.white54, fontSize: 12),
+              ),
+            ])),
+            if (_carrera.isNotEmpty)
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF7C6AF7).withOpacity(0.2),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: const Color(0xFF7C6AF7).withOpacity(0.5)),
+                ),
+                child: Text(_carrera, style: const TextStyle(color: Color(0xFF7C6AF7), fontSize: 10, fontWeight: FontWeight.bold)),
+              ),
+          ]),
+        ),
         const SizedBox(height: 20),
+        if (escenarios.isNotEmpty) ...[
+          const Text('SUGERENCIAS PARA TU CARRERA', style: TextStyle(color: Colors.white38, fontSize: 10, fontWeight: FontWeight.w700, letterSpacing: 1)),
+          const SizedBox(height: 8),
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              children: escenarios.map((e) => _TapScale(
+                onTap: () => setState(() => _simulacroTemaController.text = e),
+                child: Container(
+                  margin: const EdgeInsets.only(right: 8),
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF1E1E2A),
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(color: const Color(0xFF7C6AF7).withOpacity(0.35)),
+                  ),
+                  child: Text(e, style: const TextStyle(color: Color(0xFF7C6AF7), fontSize: 12)),
+                ),
+              )).toList(),
+            ),
+          ),
+          const SizedBox(height: 16),
+        ],
         TextField(controller: _simulacroTemaController, style: const TextStyle(color: Colors.white), decoration: InputDecoration(hintText: 'Ej: Calculo II, Historia del Peru, Python', hintStyle: const TextStyle(color: Colors.white38), labelText: 'Tema del simulacro', labelStyle: const TextStyle(color: Color(0xFF7C6AF7)), filled: true, fillColor: const Color(0xFF1E1E2A), border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none))),
         const SizedBox(height: 12),
         TextField(controller: _cantidadController, style: const TextStyle(color: Colors.white), keyboardType: TextInputType.number, decoration: InputDecoration(hintText: 'Ej: 10', hintStyle: const TextStyle(color: Colors.white38), labelText: 'Cantidad de preguntas', labelStyle: const TextStyle(color: Color(0xFF7C6AF7)), filled: true, fillColor: const Color(0xFF1E1E2A), border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none))),
@@ -2232,9 +2307,24 @@ class _IAPageState extends State<IAPage> {
   }
 
   Widget _buildTemasPopulares() {
-    const temas = ['Cálculo I', 'Python', 'Álgebra', 'Historia', 'Biología', 'Química', 'Física', 'Estadística', 'Economía', 'Derecho'];
+    final temas = CarreraService.temasPopulares(_carrera);
+    final label = _carrera.isNotEmpty ? 'TEMAS DE $_carrera'.toUpperCase() : 'TEMAS POPULARES';
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      const Text('TEMAS POPULARES', style: TextStyle(color: Colors.white38, fontSize: 10, fontWeight: FontWeight.w700, letterSpacing: 1)),
+      Row(children: [
+        Text(label, style: const TextStyle(color: Colors.white38, fontSize: 10, fontWeight: FontWeight.w700, letterSpacing: 1)),
+        if (_carrera.isNotEmpty) ...[
+          const SizedBox(width: 8),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+            decoration: BoxDecoration(
+              color: const Color(0xFF7C6AF7).withOpacity(0.15),
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: const Color(0xFF7C6AF7).withOpacity(0.4)),
+            ),
+            child: Text(_carrera, style: const TextStyle(color: Color(0xFF7C6AF7), fontSize: 9, fontWeight: FontWeight.w600)),
+          ),
+        ],
+      ]),
       const SizedBox(height: 8),
       SingleChildScrollView(
         scrollDirection: Axis.horizontal,

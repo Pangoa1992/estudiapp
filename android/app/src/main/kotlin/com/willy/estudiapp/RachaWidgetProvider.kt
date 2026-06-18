@@ -13,12 +13,12 @@ class RachaWidgetProvider : AppWidgetProvider() {
     ) {
         val prefs = context.getSharedPreferences("FlutterSharedPreferences", Context.MODE_PRIVATE)
         val racha = prefs.getString("flutter.racha", "0") ?: "0"
-        val habitos = prefs.getString("flutter.habitos_hoy", "Sin habitos hoy") ?: "Sin habitos hoy"
+        val misiones = prefs.getString("flutter.misiones_pendientes", "0") ?: "0"
 
         for (widgetId in appWidgetIds) {
             val views = RemoteViews(context.packageName, R.layout.racha_widget)
             views.setTextViewText(R.id.tv_racha, racha)
-            views.setTextViewText(R.id.tv_habitos, habitos)
+            views.setTextViewText(R.id.tv_misiones, misiones)
             appWidgetManager.updateAppWidget(widgetId, views)
         }
     }

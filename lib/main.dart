@@ -212,6 +212,7 @@ class _HomePageState extends State<HomePage> {
   bool _bannerAdFailed = false;
   int _rachaWidget = 0;
   List<String> _habitosWidget = [];
+  int _misionesWidget = 0;
 
   @override
   void initState() {
@@ -220,6 +221,7 @@ class _HomePageState extends State<HomePage> {
     unawaited(FcmService.inicializar());
     unawaited(ResenaService.registrarPrimeraApertura());
     unawaited(_iniciarMisiones());
+    unawaited(_sincronizarCarreraPendiente());
     _activarRecordatorios();
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       await _mostrarAvisoBateria();
@@ -251,10 +253,25 @@ class _HomePageState extends State<HomePage> {
     super.dispose();
   }
 
+  Future<void> _sincronizarCarreraPendiente() async {
+    if (user == null) return;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final carrera = prefs.getString('carrera_onboarding');
+      if (carrera == null || carrera.isEmpty) return;
+      await _db.collection('perfiles').doc(user!.uid).set(
+        {'carrera': carrera},
+        SetOptions(merge: true),
+      );
+      await prefs.remove('carrera_onboarding');
+    } catch (_) {}
+  }
+
   Future<void> _iniciarMisiones() async {
     await MisionesService.generarMisionesSiNecesario();
     final (diarias, _) = await MisionesService.obtenerMisiones();
     final pendientes = diarias.where((Mision m) => !m.reclamada).length;
+    _misionesWidget = pendientes;
     await NotificacionesService.programarRecordatorioMisiones(pendientes);
   }
 
@@ -424,7 +441,7 @@ class _HomePageState extends State<HomePage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: context.bgPrimary,
+      backgroundColor: const Color(0xFF0F0F14),
       bottomNavigationBar: _bannerAdReady
           ? SizedBox(
               height: _bannerAd!.size.height.toDouble(),
@@ -443,7 +460,13 @@ class _HomePageState extends State<HomePage> {
                 )
               : null,
       body: Container(
-        decoration: BoxDecoration(gradient: context.bgGradient),
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [Color(0xFF0F0F14), Color(0xFF14101E)],
+          ),
+        ),
         child: SafeArea(
           child: SingleChildScrollView(
             padding: const EdgeInsets.all(20),
@@ -473,166 +496,168 @@ class _HomePageState extends State<HomePage> {
   // ── Widgets ───────────────────────────────────────────────────────────────
 
   Widget _buildHeader() {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        Column(
+    return StreamBuilder<DocumentSnapshot>(
+      stream: (user?.uid ?? '').isNotEmpty
+          ? _db.collection('perfiles').doc(user!.uid).snapshots()
+          : const Stream.empty(),
+      builder: (context, perfilSnap) {
+        final data = perfilSnap.data?.data() as Map<String, dynamic>?;
+        final isPremium = data?['isPremium'] == true;
+        final carrera = data?['carrera'] as String? ?? '';
+        final monedas = (data?['monedas'] as num? ?? 0).toInt();
+        final xpTotal = (data?['xp_total'] as num? ?? 0).toInt();
+        final nivel = NivelesService.nivelDesdeXpTotal(xpTotal);
+        final emojiNivel = NivelesService.emojiDeNivel(nivel);
+        return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(_saludo(context),
-                style: TextStyle(color: context.textSecondary, fontSize: 13)),
-            Text('$_nombreUsuario 👋',
-                style: TextStyle(
-                    color: context.textPrimary,
-                    fontSize: 24,
-                    fontWeight: FontWeight.bold)),
-          ],
-        ),
-        Row(
-          children: [
-            GestureDetector(
-              onTap: () => Navigator.push(
-                  context, MaterialPageRoute(builder: (_) => const CursosPage())),
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                decoration: BoxDecoration(
-                  color: context.bgCard,
-                  borderRadius: BorderRadius.circular(10),
-                  border: Border.all(
-                      color: const Color(0xFF7C6AF7).withOpacity(0.5)),
-                ),
-                child: Text(context.l10n.myCourses,
-                    style: const TextStyle(
-                        color: Color(0xFF7C6AF7),
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600)),
-              ),
-            ),
-            const SizedBox(width: 8),
-            StreamBuilder<DocumentSnapshot>(
-              stream: (user?.uid ?? '').isNotEmpty
-                  ? _db.collection('perfiles').doc(user!.uid).snapshots()
-                  : const Stream.empty(),
-              builder: (context, perfilSnap) {
-                final data = perfilSnap.data?.data() as Map<String, dynamic>?;
-                final isPremium = data?['isPremium'] == true;
-                final carrera = data?['carrera'] as String? ?? '';
-                final monedas = (data?['monedas'] as num? ?? 0).toInt();
-                final xpTotal = (data?['xp_total'] as num? ?? 0).toInt();
-                final nivel = NivelesService.nivelDesdeXpTotal(xpTotal);
-                final emojiNivel = NivelesService.emojiDeNivel(nivel);
-                return Row(
-                  mainAxisSize: MainAxisSize.min,
+            // Fila 1: saludo/nombre + avatar
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // Nivel badge
-                    GestureDetector(
-                      onTap: () => Navigator.push(context,
-                          MaterialPageRoute(builder: (_) => const MisionesPage())),
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 8, vertical: 8),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFF1E1E2A),
-                          borderRadius: BorderRadius.circular(10),
-                          border: Border.all(
-                              color: const Color(0xFF7C6AF7).withOpacity(0.5)),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Text(emojiNivel,
-                                style: const TextStyle(fontSize: 12)),
-                            const SizedBox(width: 3),
-                            Text('Nv.$nivel',
-                                style: const TextStyle(
-                                    color: Color(0xFF9D8FFF),
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.bold)),
-                          ],
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 6),
-                    GestureDetector(
-                      onTap: () => Navigator.push(context,
-                          MaterialPageRoute(builder: (_) => const TiendaPage())),
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 10, vertical: 8),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFF1E1E2A),
-                          borderRadius: BorderRadius.circular(10),
-                          border: Border.all(
-                              color: const Color(0xFFFFD700).withOpacity(0.5)),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            const Text('🪙',
-                                style: TextStyle(fontSize: 14)),
-                            const SizedBox(width: 4),
-                            Text('$monedas',
-                                style: const TextStyle(
-                                    color: Color(0xFFFFD700),
-                                    fontSize: 13,
-                                    fontWeight: FontWeight.bold)),
-                          ],
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    GestureDetector(
-                      onTap: () => Navigator.push(context,
-                          MaterialPageRoute(builder: (_) => const PerfilPage())),
-                      child: Stack(
-                        clipBehavior: Clip.none,
-                        children: [
-                          CircleAvatar(
-                            radius: 22,
-                            backgroundColor: const Color(0xFF7C6AF7),
-                            backgroundImage: user?.photoURL != null
-                                ? NetworkImage(user!.photoURL!)
-                                : null,
-                            child: user?.photoURL == null
-                                ? Text(
-                                    _nombreUsuario.isNotEmpty
-                                        ? _nombreUsuario[0].toUpperCase()
-                                        : 'U',
-                                    style: const TextStyle(
-                                        color: Colors.white,
-                                        fontWeight: FontWeight.bold),
-                                  )
-                                : null,
-                          ),
-                          if (isPremium)
-                            const Positioned(
-                              right: -2,
-                              bottom: -2,
-                              child: Text('⭐', style: TextStyle(fontSize: 13)),
-                            ),
-                          if (!isPremium && carrera.isEmpty)
-                            Positioned(
-                              right: -2,
-                              top: -2,
-                              child: Container(
-                                width: 10,
-                                height: 10,
-                                decoration: const BoxDecoration(
-                                  color: Color(0xFFF7A26A),
-                                  shape: BoxShape.circle,
-                                ),
-                              ),
-                            ),
-                        ],
-                      ),
-                    ),
+                    Text(_saludo(context),
+                        style: TextStyle(
+                            color: context.textSecondary, fontSize: 13)),
+                    Text('$_nombreUsuario 👋',
+                        style: TextStyle(
+                            color: context.textPrimary,
+                            fontSize: 24,
+                            fontWeight: FontWeight.bold)),
                   ],
-                );
-              },
+                ),
+                GestureDetector(
+                  onTap: () => Navigator.push(context,
+                      MaterialPageRoute(builder: (_) => const PerfilPage())),
+                  child: Stack(
+                    clipBehavior: Clip.none,
+                    children: [
+                      CircleAvatar(
+                        radius: 22,
+                        backgroundColor: const Color(0xFF7C6AF7),
+                        backgroundImage: user?.photoURL != null
+                            ? NetworkImage(user!.photoURL!)
+                            : null,
+                        child: user?.photoURL == null
+                            ? Text(
+                                _nombreUsuario.isNotEmpty
+                                    ? _nombreUsuario[0].toUpperCase()
+                                    : 'U',
+                                style: const TextStyle(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.bold),
+                              )
+                            : null,
+                      ),
+                      if (isPremium)
+                        const Positioned(
+                          right: -2,
+                          bottom: -2,
+                          child: Text('⭐', style: TextStyle(fontSize: 13)),
+                        ),
+                      if (!isPremium && carrera.isEmpty)
+                        Positioned(
+                          right: -2,
+                          top: -2,
+                          child: Container(
+                            width: 10,
+                            height: 10,
+                            decoration: const BoxDecoration(
+                              color: Color(0xFFF7A26A),
+                              shape: BoxShape.circle,
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 10),
+            // Fila 2: Mis Cursos | Nivel | Monedas
+            Row(
+              children: [
+                GestureDetector(
+                  onTap: () => Navigator.push(context,
+                      MaterialPageRoute(builder: (_) => const CursosPage())),
+                  child: Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF1E1E2A),
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(
+                          color: const Color(0xFF7C6AF7).withOpacity(0.5)),
+                    ),
+                    child: Text(context.l10n.myCourses,
+                        style: const TextStyle(
+                            color: Color(0xFF7C6AF7),
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600)),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                GestureDetector(
+                  onTap: () => Navigator.push(context,
+                      MaterialPageRoute(builder: (_) => const MisionesPage())),
+                  child: Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 8, vertical: 7),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF1E1E2A),
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(
+                          color: const Color(0xFF7C6AF7).withOpacity(0.5)),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(emojiNivel,
+                            style: const TextStyle(fontSize: 12)),
+                        const SizedBox(width: 3),
+                        Text('Nv.$nivel',
+                            style: const TextStyle(
+                                color: Color(0xFF9D8FFF),
+                                fontSize: 12,
+                                fontWeight: FontWeight.bold)),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                GestureDetector(
+                  onTap: () => Navigator.push(context,
+                      MaterialPageRoute(builder: (_) => const TiendaPage())),
+                  child: Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF1E1E2A),
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(
+                          color: const Color(0xFFFFD700).withOpacity(0.5)),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Text('🪙', style: TextStyle(fontSize: 14)),
+                        const SizedBox(width: 4),
+                        Text('$monedas',
+                            style: const TextStyle(
+                                color: Color(0xFFFFD700),
+                                fontSize: 13,
+                                fontWeight: FontWeight.bold)),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
             ),
           ],
-        ),
-      ],
+        );
+      },
     );
   }
 
@@ -655,7 +680,7 @@ class _HomePageState extends State<HomePage> {
           );
           if (_rachaWidget != rachaInt) {
             _rachaWidget = rachaInt;
-            WidgetService.actualizar(racha: rachaInt, habitosHoy: _habitosWidget);
+            WidgetService.actualizar(racha: rachaInt, habitosHoy: _habitosWidget, misionesPendientes: _misionesWidget);
           }
         }
 
@@ -841,7 +866,7 @@ class _HomePageState extends State<HomePage> {
         width: double.infinity,
         padding: const EdgeInsets.symmetric(vertical: 16),
         decoration: BoxDecoration(
-          color: context.bgCard,
+          color: const Color(0xFF1E1E2A),
           borderRadius: BorderRadius.circular(14),
           border: Border.all(color: const Color(0xFF7C6AF7).withOpacity(0.5)),
           boxShadow: context.cardShadow,
@@ -1035,7 +1060,7 @@ class _HomePageState extends State<HomePage> {
             if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
               if (_habitosWidget.isNotEmpty) {
                 _habitosWidget = [];
-                WidgetService.actualizar(racha: _rachaWidget, habitosHoy: []);
+                WidgetService.actualizar(racha: _rachaWidget, habitosHoy: [], misionesPendientes: _misionesWidget);
               }
               return GestureDetector(
                 onTap: () => Navigator.push(context,
@@ -1067,7 +1092,7 @@ class _HomePageState extends State<HomePage> {
                 .toList();
             if (_habitosWidget.join() != nombresHabitos.join()) {
               _habitosWidget = nombresHabitos;
-              WidgetService.actualizar(racha: _rachaWidget, habitosHoy: nombresHabitos);
+              WidgetService.actualizar(racha: _rachaWidget, habitosHoy: nombresHabitos, misionesPendientes: _misionesWidget);
             }
             const iconos = [
               Icons.book, Icons.water_drop, Icons.directions_run,
@@ -1245,8 +1270,8 @@ class _HomePageState extends State<HomePage> {
                       textAlign: TextAlign.center,
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                          color: item.color,
+                      style: const TextStyle(
+                          color: Colors.white,
                           fontSize: 11,
                           fontWeight: FontWeight.w600,
                           height: 1.3),

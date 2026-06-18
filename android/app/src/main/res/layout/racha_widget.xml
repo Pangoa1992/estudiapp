@@ -6,14 +6,16 @@
     android:orientation="vertical"
     android:padding="14dp">
 
+    <!-- Header -->
     <TextView
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="EstudiApp"
+        android:text="✦ EstudiApp"
         android:textColor="#7C6AF7"
         android:textSize="11sp"
         android:textStyle="bold" />
 
+    <!-- Racha -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
@@ -24,9 +26,8 @@
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="Racha: "
-            android:textColor="#AAAAAA"
-            android:textSize="13sp" />
+            android:text="🔥"
+            android:textSize="22sp" />
 
         <TextView
             android:id="@+id/tv_racha"
@@ -34,17 +35,19 @@
             android:layout_height="wrap_content"
             android:text="0"
             android:textColor="#7C6AF7"
-            android:textSize="22sp"
-            android:textStyle="bold" />
+            android:textSize="30sp"
+            android:textStyle="bold"
+            android:layout_marginStart="6dp" />
 
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text=" dias"
+            android:text=" días"
             android:textColor="#AAAAAA"
             android:textSize="13sp" />
     </LinearLayout>
 
+    <!-- Divider -->
     <View
         android:layout_width="match_parent"
         android:layout_height="1dp"
@@ -52,22 +55,35 @@
         android:layout_marginTop="8dp"
         android:layout_marginBottom="8dp" />
 
-    <TextView
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="Habitos de hoy:"
-        android:textColor="#AAAAAA"
-        android:textSize="11sp" />
-
-    <TextView
-        android:id="@+id/tv_habitos"
+    <!-- Misiones pendientes -->
+    <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="Sin habitos"
-        android:textColor="#FFFFFF"
-        android:textSize="12sp"
-        android:layout_marginTop="4dp"
-        android:maxLines="5"
-        android:ellipsize="end" />
+        android:orientation="horizontal"
+        android:gravity="center_vertical">
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="⭐"
+            android:textSize="14sp" />
+
+        <TextView
+            android:id="@+id/tv_misiones"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="0"
+            android:textColor="#F7A26A"
+            android:textSize="16sp"
+            android:textStyle="bold"
+            android:layout_marginStart="5dp" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text=" misiones hoy"
+            android:textColor="#888888"
+            android:textSize="11sp" />
+    </LinearLayout>
 
 </LinearLayout>

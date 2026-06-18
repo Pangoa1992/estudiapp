@@ -77,6 +77,61 @@ class CarreraService {
     }
   }
 
+  static List<String> temasPopulares(String carrera) {
+    switch (carrera) {
+      case 'Medicina':
+        return ['Anatomía humana', 'Fisiología', 'Bioquímica', 'Farmacología', 'Patología', 'Semiología'];
+      case 'Enfermería':
+        return ['Anatomía', 'Farmacología básica', 'Cuidados de enfermería', 'Nutrición clínica', 'Salud pública'];
+      case 'Odontología':
+        return ['Anatomía dental', 'Cariología', 'Periodoncia', 'Endodoncia', 'Ortodoncia'];
+      case 'Farmacia':
+        return ['Química orgánica', 'Farmacología', 'Bioquímica', 'Bromatología', 'Farmacognosia'];
+      case 'Veterinaria':
+        return ['Anatomía animal', 'Fisiología veterinaria', 'Patología animal', 'Farmacología vet.'];
+      case 'Nutrición':
+        return ['Bioquímica nutricional', 'Dietoterapia', 'Nutrición clínica', 'Microbiología'];
+      case 'Ingeniería Civil':
+        return ['Resistencia de materiales', 'Mecánica de fluidos', 'Topografía', 'Estructuras', 'Suelos'];
+      case 'Ingeniería Mecánica':
+        return ['Termodinámica', 'Dinámica', 'Resistencia de materiales', 'Diseño de máquinas'];
+      case 'Ingeniería Electrónica':
+        return ['Circuitos eléctricos', 'Electrónica digital', 'Señales y sistemas', 'Microcontroladores'];
+      case 'Ingeniería Industrial':
+        return ['Investigación de operaciones', 'Gestión de calidad', 'Logística', 'Estadística industrial'];
+      case 'Ingeniería de Sistemas':
+        return ['Algoritmos', 'Estructuras de datos', 'Bases de datos', 'Redes', 'POO', 'Sistemas operativos'];
+      case 'Arquitectura':
+        return ['Diseño arquitectónico', 'Estructuras', 'Urbanismo', 'Historia de la arquitectura'];
+      case 'Derecho':
+        return ['Derecho Civil', 'Derecho Penal', 'Derecho Constitucional', 'Procesal Civil', 'Laboral'];
+      case 'Psicología':
+        return ['Psicopatología', 'Neurociencia', 'Terapia cognitivo-conductual', 'Psicología social', 'Estadística'];
+      case 'Administración de Empresas':
+        return ['Finanzas', 'Marketing', 'Gestión de RRHH', 'Estrategia empresarial', 'Contabilidad'];
+      case 'Contabilidad':
+        return ['Contabilidad financiera', 'Auditoría', 'Tributación', 'NIIF', 'Costos'];
+      case 'Economía':
+        return ['Microeconomía', 'Macroeconomía', 'Econometría', 'Finanzas públicas', 'Estadística'];
+      case 'Marketing':
+        return ['Marketing digital', 'Investigación de mercados', 'Branding', 'Publicidad', 'CRM'];
+      case 'Comunicaciones':
+        return ['Teoría de la comunicación', 'Periodismo', 'Publicidad', 'Redacción', 'Medios digitales'];
+      case 'Educación':
+        return ['Didáctica', 'Psicología educativa', 'Currículo', 'Evaluación educativa', 'Pedagogía'];
+      case 'Biología':
+        return ['Biología celular', 'Genética', 'Ecología', 'Evolución', 'Bioquímica', 'Microbiología'];
+      case 'Química':
+        return ['Química orgánica', 'Química analítica', 'Fisicoquímica', 'Termodinámica', 'Espectroscopía'];
+      case 'Física':
+        return ['Mecánica clásica', 'Electromagnetismo', 'Termodinámica', 'Óptica', 'Física cuántica'];
+      case 'Matemáticas':
+        return ['Cálculo diferencial', 'Álgebra lineal', 'Ecuaciones diferenciales', 'Análisis real', 'Estadística'];
+      default:
+        return ['Cálculo I', 'Estadística', 'Álgebra', 'Historia', 'Física', 'Química', 'Biología', 'Economía'];
+    }
+  }
+
   static List<String> escenarios(String carrera) {
     switch (carrera) {
       case 'Medicina':
