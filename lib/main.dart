@@ -6,6 +6,7 @@ import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:google_mobile_ads/google_mobile_ads.dart';
+import 'package:in_app_purchase/in_app_purchase.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:async';
 import 'dart:io';
@@ -50,7 +51,10 @@ import 'services/fcm_service.dart';
 import 'services/monedas_service.dart';
 import 'services/misiones_service.dart';
 import 'services/niveles_service.dart';
+import 'services/premium_service.dart';
+import 'services/referidos_service.dart';
 import 'services/resena_service.dart';
+import 'referidos_page.dart';
 import 'models/mision_model.dart';
 import 'misiones_page.dart';
 import 'bienvenida_dialog.dart';
@@ -213,6 +217,7 @@ class _HomePageState extends State<HomePage> {
   int _rachaWidget = 0;
   List<String> _habitosWidget = [];
   int _misionesWidget = 0;
+  StreamSubscription<List<PurchaseDetails>>? _iapSub;
 
   @override
   void initState() {
@@ -223,10 +228,27 @@ class _HomePageState extends State<HomePage> {
     unawaited(_iniciarMisiones());
     unawaited(_sincronizarCarreraPendiente());
     _activarRecordatorios();
+    // Listener global de compras IAP: captura cobros post-trial aunque
+    // PremiumPage no esté abierta (el listener en PremiumPage solo cubre
+    // cuando el usuario está en esa pantalla).
+    _iapSub = InAppPurchase.instance.purchaseStream.listen(
+      _handleComprasGlobal,
+      onError: (e) {
+        FirebaseCrashlytics.instance.recordError(
+          e, null, reason: 'IAP purchaseStream error en HomePage',
+        );
+      },
+    );
+    // Sincroniza el estado de suscripción con Google Play al abrir la app.
+    // Esto resuelve el caso donde el trial venció y Google Play ya cobró
+    // pero la app aún no procesó el evento.
+    unawaited(InAppPurchase.instance.restorePurchases());
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       await _mostrarAvisoBateria();
-      _mostrarBienvenida();
+      await _mostrarBienvenida();
       _mostrarRecompensaDiaria();
+      unawaited(Future.delayed(
+        const Duration(milliseconds: 800), _mostrarPromptReferido));
       unawaited(ResenaService.checkPorDiasDeUso());
       unawaited(ResenaService.checkPorSesiones());
     });
@@ -249,8 +271,167 @@ class _HomePageState extends State<HomePage> {
 
   @override
   void dispose() {
+    _iapSub?.cancel();
     _bannerAd?.dispose();
     super.dispose();
+  }
+
+  Future<void> _handleComprasGlobal(List<PurchaseDetails> compras) async {
+    for (final p in compras) {
+      FirebaseCrashlytics.instance.log(
+        '[Premium] Evento global: status=${p.status} product=${p.productID}',
+      );
+      if (p.status == PurchaseStatus.purchased ||
+          p.status == PurchaseStatus.restored) {
+        try {
+          await PremiumService.activarDesdePago(
+            planId: p.productID,
+            purchaseToken: p.verificationData.serverVerificationData,
+          );
+          FirebaseCrashlytics.instance.log(
+            '[Premium] activarDesdePago OK (global): ${p.productID}',
+          );
+        } catch (e, st) {
+          FirebaseCrashlytics.instance.recordError(
+            e, st,
+            reason: 'activarDesdePago falló (global) post-trial: ${p.productID}',
+          );
+        }
+        if (p.pendingCompletePurchase) {
+          try {
+            await InAppPurchase.instance.completePurchase(p);
+          } catch (e) {
+            FirebaseCrashlytics.instance.log(
+              '[Premium] completePurchase error (global): $e',
+            );
+          }
+        }
+      } else if (p.status == PurchaseStatus.error) {
+        FirebaseCrashlytics.instance.recordError(
+          Exception('IAP error: ${p.error?.message} [${p.error?.code}]'),
+          null,
+          reason: 'Pago fallido en background: ${p.productID}',
+        );
+        if (p.pendingCompletePurchase) {
+          await InAppPurchase.instance.completePurchase(p);
+        }
+      }
+    }
+  }
+
+  Future<void> _mostrarPromptReferido() async {
+    if (user == null || !mounted) return;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      if (prefs.getBool('referido_prompt_visto') == true) return;
+
+      final doc = await _db.collection('perfiles').doc(user!.uid).get();
+      if (doc.data()?['codigoReferidoUsado'] != null) {
+        await prefs.setBool('referido_prompt_visto', true);
+        return;
+      }
+
+      await prefs.setBool('referido_prompt_visto', true);
+      if (!mounted) return;
+
+      final l10n = context.l10n;
+      final ctrl = TextEditingController();
+      await showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (ctx) => AlertDialog(
+          backgroundColor: const Color(0xFF1E1E2A),
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          title: const Text('🎁',
+              textAlign: TextAlign.center, style: TextStyle(fontSize: 36)),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(l10n.refPromptTitle,
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 16)),
+              const SizedBox(height: 8),
+              Text(l10n.refPromptBody,
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                      color: Colors.white54, fontSize: 13, height: 1.5)),
+              const SizedBox(height: 16),
+              TextField(
+                controller: ctrl,
+                textCapitalization: TextCapitalization.characters,
+                style: const TextStyle(
+                    color: Colors.white,
+                    letterSpacing: 2,
+                    fontWeight: FontWeight.bold),
+                decoration: InputDecoration(
+                  hintText: l10n.refApplyHint,
+                  hintStyle: const TextStyle(color: Colors.white24),
+                  filled: true,
+                  fillColor: const Color(0xFF0F0F14),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(10),
+                    borderSide: const BorderSide(color: Colors.white12),
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(10),
+                    borderSide: const BorderSide(color: Colors.white12),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(10),
+                    borderSide:
+                        const BorderSide(color: Color(0xFF7C6AF7)),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: Text(l10n.refPromptSkip,
+                  style: const TextStyle(color: Colors.white38)),
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF7C6AF7),
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10)),
+              ),
+              onPressed: () async {
+                Navigator.pop(ctx);
+                if (ctrl.text.trim().isEmpty) return;
+                final resultado =
+                    await ReferidosService.aplicarCodigo(ctrl.text);
+                if (!mounted) return;
+                final msg = switch (resultado) {
+                  'ok' => l10n.refApplyOk,
+                  'ya_usado' => l10n.refApplyAlreadyUsed,
+                  'invalido' => l10n.refApplyInvalid,
+                  'propio' => l10n.refApplyOwn,
+                  _ => l10n.refApplyError,
+                };
+                ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                  content: Text(msg),
+                  backgroundColor: resultado == 'ok'
+                      ? const Color(0xFF5DE0C5)
+                      : const Color(0xFF2A2A3E),
+                  duration: const Duration(seconds: 3),
+                ));
+              },
+              child: Text(l10n.refApplyBtn,
+                  style: const TextStyle(
+                      color: Colors.white, fontWeight: FontWeight.bold)),
+            ),
+          ],
+        ),
+      );
+    } catch (e) {
+      debugPrint('[HomePage] _mostrarPromptReferido: $e');
+    }
   }
 
   Future<void> _sincronizarCarreraPendiente() async {
@@ -1213,6 +1394,8 @@ class _HomePageState extends State<HomePage> {
           () => Navigator.push(context, MaterialPageRoute(builder: (_) => const TiendaPage()))),
       _GrillaItem(Icons.task_alt, const Color(0xFF5DE0C5), l10n.gridMissions,
           () => Navigator.push(context, MaterialPageRoute(builder: (_) => const MisionesPage()))),
+      _GrillaItem(Icons.card_giftcard, const Color(0xFF5DE0C5), l10n.gridReferidos,
+          () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ReferidosPage()))),
     ];
 
     return Column(

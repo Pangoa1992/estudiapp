@@ -144,7 +144,8 @@
   "perMonth": "per month",
   "save45pct": "SAVE 45%",
   "tryFree": "Try 7 days free",
-  "tryFreeSubtitle": "No card · One time per account",
+  "tryFreeSubtitle": "Payment method required · Auto-renews",
+  "trialNeedsPaymentMethod": "You need a payment method in Google Play to start the free trial. You won't be charged during the 7-day trial.",
   "subscribeBtn": "Subscribe — {price}/{period}",
   "notAvailable": "Not available on this device",
   "restorePurchase": "Restore previous purchase",
@@ -388,5 +389,49 @@
   "rewardCoins30days": "🪙 +{n} coins — 30-day streak!",
   "rewardCoinsWeekly": "🪙 +{n} coins — Weekly streak!",
   "rewardCoinsDaily": "🪙 +{n} daily reward coins",
-  "adNotNow": "Ad not available at this time"
+  "adNotNow": "Ad not available at this time",
+
+  "refTitle": "Referral Program",
+  "refMyCode": "Your referral code",
+  "refCopyCode": "Copy",
+  "refShareCode": "Share",
+  "refCodeCopied": "Code copied to clipboard!",
+  "refShareText": "Join EstudiApp with my code {codigo} and get 50 welcome coins! 🎓\n\nStudy with AI, gamify your habits and improve your grades. Download it free!",
+  "@refShareText": {
+    "placeholders": {
+      "codigo": { "type": "String" }
+    }
+  },
+  "refTotalCoins": "Total earned: {n} 🪙",
+  "@refTotalCoins": {
+    "placeholders": {
+      "n": { "type": "int" }
+    }
+  },
+  "refHowItWorks": "How it works",
+  "refStep1": "Share your code with a friend",
+  "refStep2": "Your friend signs up and enters it",
+  "refStep3": "You both get coins instantly!",
+  "refApplyCode": "I have a friend's code",
+  "refApplyTitle": "Enter friend's code",
+  "refApplyHint": "E.g. WILLY2026",
+  "refApplyBtn": "Apply",
+  "refApplyOk": "Code applied! You received 50 coins 🎉",
+  "refApplyAlreadyUsed": "You already used a referral code",
+  "refApplyInvalid": "Invalid code. Please check and try again",
+  "refApplyOwn": "You can't use your own code 😄",
+  "refApplyError": "Error applying code. Please try again",
+  "refHistory": "My referrals",
+  "refNoHistory": "You haven't referred anyone yet",
+  "refNoHistoryDesc": "Share your code and earn 100 coins for every friend who joins",
+  "refFriendJoined": "Joined on {fecha}",
+  "@refFriendJoined": {
+    "placeholders": {
+      "fecha": { "type": "String" }
+    }
+  },
+  "refPromptTitle": "Have a friend's code?",
+  "refPromptBody": "If someone invited you to EstudiApp, enter their code and get 50 welcome coins 🎁",
+  "refPromptSkip": "I don't have a code",
+  "gridReferidos": "Referrals"
 }

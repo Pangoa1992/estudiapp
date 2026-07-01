@@ -52,3 +52,6 @@ deploy/node_modules/
 # OS
 .DS_Store
 Thumbs.db
+
+# Kotlin compiler error logs (build artifacts)
+android/.kotlin/

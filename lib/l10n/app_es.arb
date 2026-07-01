@@ -182,7 +182,8 @@
   "perMonth": "por mes",
   "save45pct": "AHORRAS 45%",
   "tryFree": "Probar 7 días gratis",
-  "tryFreeSubtitle": "Sin tarjeta · Solo una vez por cuenta",
+  "tryFreeSubtitle": "Requiere método de pago · Renueva automáticamente",
+  "trialNeedsPaymentMethod": "Necesitas un método de pago en Google Play para activar la prueba gratuita. Google no te cobrará durante los 7 días de prueba.",
   "subscribeBtn": "Suscribirse — {price}/{period}",
   "@subscribeBtn": {
     "placeholders": {
@@ -559,5 +560,49 @@
       "n": { "type": "int" }
     }
   },
-  "adNotNow": "Anuncio no disponible en este momento"
+  "adNotNow": "Anuncio no disponible en este momento",
+
+  "refTitle": "Programa de Referidos",
+  "refMyCode": "Tu código de referido",
+  "refCopyCode": "Copiar",
+  "refShareCode": "Compartir",
+  "refCodeCopied": "¡Código copiado al portapapeles!",
+  "refShareText": "¡Únete a EstudiApp con mi código {codigo} y recibe 50 monedas de bienvenida! 🎓\n\nEstudia con IA, gamifica tus hábitos y mejora tus notas. ¡Descárgala gratis!",
+  "@refShareText": {
+    "placeholders": {
+      "codigo": { "type": "String" }
+    }
+  },
+  "refTotalCoins": "Total ganado: {n} 🪙",
+  "@refTotalCoins": {
+    "placeholders": {
+      "n": { "type": "int" }
+    }
+  },
+  "refHowItWorks": "¿Cómo funciona?",
+  "refStep1": "Comparte tu código con un amigo",
+  "refStep2": "Tu amigo se registra y lo ingresa",
+  "refStep3": "¡Ambos reciben monedas al instante!",
+  "refApplyCode": "Tengo un código de amigo",
+  "refApplyTitle": "Ingresar código de amigo",
+  "refApplyHint": "Ej: WILLY2026",
+  "refApplyBtn": "Aplicar",
+  "refApplyOk": "¡Código aplicado! Recibiste 50 monedas 🎉",
+  "refApplyAlreadyUsed": "Ya usaste un código de referido anteriormente",
+  "refApplyInvalid": "Código inválido. Revisa y vuelve a intentarlo",
+  "refApplyOwn": "No puedes usar tu propio código 😄",
+  "refApplyError": "Error al aplicar el código. Intenta de nuevo",
+  "refHistory": "Mis referidos",
+  "refNoHistory": "Aún no has referido a nadie",
+  "refNoHistoryDesc": "Comparte tu código y gana 100 monedas por cada amigo que se una",
+  "refFriendJoined": "Se unió el {fecha}",
+  "@refFriendJoined": {
+    "placeholders": {
+      "fecha": { "type": "String" }
+    }
+  },
+  "refPromptTitle": "¿Tienes un código de amigo?",
+  "refPromptBody": "Si alguien te invitó a EstudiApp, ingresa su código y recibe 50 monedas de bienvenida 🎁",
+  "refPromptSkip": "No tengo código",
+  "gridReferidos": "Referidos"
 }

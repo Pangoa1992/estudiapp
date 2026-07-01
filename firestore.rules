@@ -196,6 +196,27 @@ service cloud.firestore {
       allow read, write: if esAdmin();
     }
 
+    // ── Referidos ─────────────────────────────────────────────────────────────
+    // Cualquier usuario puede leer (para validar un código al aplicarlo).
+    // Solo el dueño puede crear su propio documento de código.
+    // Cualquier usuario autenticado puede incrementar el contador de usos
+    // (la lógica anti-abuso se hace en transacción en la subcolección).
+    match /referidos/{codigo} {
+      allow read: if esAutenticado();
+      allow create: if esAutenticado() && request.resource.data.uid == request.auth.uid;
+      allow update: if esAutenticado() &&
+                       request.resource.data.diff(resource.data).affectedKeys()
+                         .hasOnly(['usos']);
+
+      match /usos/{userId} {
+        allow read: if esAutenticado() && (
+          esPropietario(userId) ||
+          get(/databases/$(database)/documents/referidos/$(codigo)).data.uid == request.auth.uid
+        );
+        allow create: if esAutenticado() && esPropietario(userId);
+      }
+    }
+
     // ── Admin — puede leer todo ───────────────────────────────────────────────
     match /{document=**} {
       allow read: if esAdmin();

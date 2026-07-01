@@ -43,36 +43,16 @@ class PremiumService {
     }
   }
 
-  /// Activa 7 días de prueba gratuita.
-  /// Devuelve `true` si se activó, `false` si ya fue usado antes.
-  /// Usa una transacción atómica para que nadie pueda activarlo dos veces.
-  static Future<bool> activarTrialGratuito() async {
-    final user = FirebaseAuth.instance.currentUser;
-    if (user == null) return false;
-    final ref = _db.collection('perfiles').doc(user.uid);
-    bool activado = false;
-    await _db.runTransaction((tx) async {
-      final doc = await tx.get(ref);
-      if (doc.data()?['trialUsado'] == true) return; // ya usado → no hace nada
-      tx.set(
-        ref,
-        {
-          'isPremium': true,
-          'premiumExpiry': Timestamp.fromDate(
-            DateTime.now().add(const Duration(days: 7)),
-          ),
-          'premiumActivadoEn': Timestamp.now(),
-          'planPremium': 'trial_7d',
-          'trialUsado': true, // bandera anti-abuso (irreversible)
-        },
-        SetOptions(merge: true),
-      );
-      activado = true;
-    });
-    return activado;
-  }
+  // NOTA: El antiguo `activarTrialGratuito()` se eliminó a propósito.
+  // Concedía 7 días de Premium escribiendo directamente en Firestore, SIN
+  // ninguna suscripción de Google Play detrás → nunca se cobraba al vencer.
+  // Ahora la prueba gratuita se inicia como una oferta real de suscripción de
+  // Google Play desde PremiumPage (`GooglePlayPurchaseParam` con offerToken de
+  // la fase gratuita): Google exige método de pago y auto-cobra al terminar.
+  // El alta la procesa `activarDesdePago()` vía el purchaseStream.
 
   /// `true` si la cuenta nunca ha usado el período de prueba gratuito.
+  /// Guarda local anti-abuso; la elegibilidad real la determina Google Play.
   static Future<bool> trialDisponible() async {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) return false;

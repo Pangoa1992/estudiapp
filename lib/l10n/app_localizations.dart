@@ -899,8 +899,14 @@ abstract class AppLocalizations {
   /// No description provided for @tryFreeSubtitle.
   ///
   /// In es, this message translates to:
-  /// **'Sin tarjeta · Solo una vez por cuenta'**
+  /// **'Requiere método de pago · Renueva automáticamente'**
   String get tryFreeSubtitle;
+
+  /// No description provided for @trialNeedsPaymentMethod.
+  ///
+  /// In es, this message translates to:
+  /// **'Necesitas un método de pago en Google Play para activar la prueba gratuita. Google no te cobrará durante los 7 días de prueba.'**
+  String get trialNeedsPaymentMethod;
 
   /// No description provided for @subscribeBtn.
   ///
@@ -2305,6 +2311,174 @@ abstract class AppLocalizations {
   /// In es, this message translates to:
   /// **'Anuncio no disponible en este momento'**
   String get adNotNow;
+
+  /// No description provided for @refTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Programa de Referidos'**
+  String get refTitle;
+
+  /// No description provided for @refMyCode.
+  ///
+  /// In es, this message translates to:
+  /// **'Tu código de referido'**
+  String get refMyCode;
+
+  /// No description provided for @refCopyCode.
+  ///
+  /// In es, this message translates to:
+  /// **'Copiar'**
+  String get refCopyCode;
+
+  /// No description provided for @refShareCode.
+  ///
+  /// In es, this message translates to:
+  /// **'Compartir'**
+  String get refShareCode;
+
+  /// No description provided for @refCodeCopied.
+  ///
+  /// In es, this message translates to:
+  /// **'¡Código copiado al portapapeles!'**
+  String get refCodeCopied;
+
+  /// No description provided for @refShareText.
+  ///
+  /// In es, this message translates to:
+  /// **'¡Únete a EstudiApp con mi código {codigo} y recibe 50 monedas de bienvenida! 🎓\n\nEstudia con IA, gamifica tus hábitos y mejora tus notas. ¡Descárgala gratis!'**
+  String refShareText(String codigo);
+
+  /// No description provided for @refTotalCoins.
+  ///
+  /// In es, this message translates to:
+  /// **'Total ganado: {n} 🪙'**
+  String refTotalCoins(int n);
+
+  /// No description provided for @refHowItWorks.
+  ///
+  /// In es, this message translates to:
+  /// **'¿Cómo funciona?'**
+  String get refHowItWorks;
+
+  /// No description provided for @refStep1.
+  ///
+  /// In es, this message translates to:
+  /// **'Comparte tu código con un amigo'**
+  String get refStep1;
+
+  /// No description provided for @refStep2.
+  ///
+  /// In es, this message translates to:
+  /// **'Tu amigo se registra y lo ingresa'**
+  String get refStep2;
+
+  /// No description provided for @refStep3.
+  ///
+  /// In es, this message translates to:
+  /// **'¡Ambos reciben monedas al instante!'**
+  String get refStep3;
+
+  /// No description provided for @refApplyCode.
+  ///
+  /// In es, this message translates to:
+  /// **'Tengo un código de amigo'**
+  String get refApplyCode;
+
+  /// No description provided for @refApplyTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'Ingresar código de amigo'**
+  String get refApplyTitle;
+
+  /// No description provided for @refApplyHint.
+  ///
+  /// In es, this message translates to:
+  /// **'Ej: WILLY2026'**
+  String get refApplyHint;
+
+  /// No description provided for @refApplyBtn.
+  ///
+  /// In es, this message translates to:
+  /// **'Aplicar'**
+  String get refApplyBtn;
+
+  /// No description provided for @refApplyOk.
+  ///
+  /// In es, this message translates to:
+  /// **'¡Código aplicado! Recibiste 50 monedas 🎉'**
+  String get refApplyOk;
+
+  /// No description provided for @refApplyAlreadyUsed.
+  ///
+  /// In es, this message translates to:
+  /// **'Ya usaste un código de referido anteriormente'**
+  String get refApplyAlreadyUsed;
+
+  /// No description provided for @refApplyInvalid.
+  ///
+  /// In es, this message translates to:
+  /// **'Código inválido. Revisa y vuelve a intentarlo'**
+  String get refApplyInvalid;
+
+  /// No description provided for @refApplyOwn.
+  ///
+  /// In es, this message translates to:
+  /// **'No puedes usar tu propio código 😄'**
+  String get refApplyOwn;
+
+  /// No description provided for @refApplyError.
+  ///
+  /// In es, this message translates to:
+  /// **'Error al aplicar el código. Intenta de nuevo'**
+  String get refApplyError;
+
+  /// No description provided for @refHistory.
+  ///
+  /// In es, this message translates to:
+  /// **'Mis referidos'**
+  String get refHistory;
+
+  /// No description provided for @refNoHistory.
+  ///
+  /// In es, this message translates to:
+  /// **'Aún no has referido a nadie'**
+  String get refNoHistory;
+
+  /// No description provided for @refNoHistoryDesc.
+  ///
+  /// In es, this message translates to:
+  /// **'Comparte tu código y gana 100 monedas por cada amigo que se una'**
+  String get refNoHistoryDesc;
+
+  /// No description provided for @refFriendJoined.
+  ///
+  /// In es, this message translates to:
+  /// **'Se unió el {fecha}'**
+  String refFriendJoined(String fecha);
+
+  /// No description provided for @refPromptTitle.
+  ///
+  /// In es, this message translates to:
+  /// **'¿Tienes un código de amigo?'**
+  String get refPromptTitle;
+
+  /// No description provided for @refPromptBody.
+  ///
+  /// In es, this message translates to:
+  /// **'Si alguien te invitó a EstudiApp, ingresa su código y recibe 50 monedas de bienvenida 🎁'**
+  String get refPromptBody;
+
+  /// No description provided for @refPromptSkip.
+  ///
+  /// In es, this message translates to:
+  /// **'No tengo código'**
+  String get refPromptSkip;
+
+  /// No description provided for @gridReferidos.
+  ///
+  /// In es, this message translates to:
+  /// **'Referidos'**
+  String get gridReferidos;
 }
 
 class _AppLocalizationsDelegate

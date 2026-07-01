@@ -428,7 +428,12 @@ class AppLocalizationsEs extends AppLocalizations {
   String get tryFree => 'Probar 7 días gratis';
 
   @override
-  String get tryFreeSubtitle => 'Sin tarjeta · Solo una vez por cuenta';
+  String get tryFreeSubtitle =>
+      'Requiere método de pago · Renueva automáticamente';
+
+  @override
+  String get trialNeedsPaymentMethod =>
+      'Necesitas un método de pago en Google Play para activar la prueba gratuita. Google no te cobrará durante los 7 días de prueba.';
 
   @override
   String subscribeBtn(String price, String period) {
@@ -1196,4 +1201,97 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String get adNotNow => 'Anuncio no disponible en este momento';
+
+  @override
+  String get refTitle => 'Programa de Referidos';
+
+  @override
+  String get refMyCode => 'Tu código de referido';
+
+  @override
+  String get refCopyCode => 'Copiar';
+
+  @override
+  String get refShareCode => 'Compartir';
+
+  @override
+  String get refCodeCopied => '¡Código copiado al portapapeles!';
+
+  @override
+  String refShareText(String codigo) {
+    return '¡Únete a EstudiApp con mi código $codigo y recibe 50 monedas de bienvenida! 🎓\n\nEstudia con IA, gamifica tus hábitos y mejora tus notas. ¡Descárgala gratis!';
+  }
+
+  @override
+  String refTotalCoins(int n) {
+    return 'Total ganado: $n 🪙';
+  }
+
+  @override
+  String get refHowItWorks => '¿Cómo funciona?';
+
+  @override
+  String get refStep1 => 'Comparte tu código con un amigo';
+
+  @override
+  String get refStep2 => 'Tu amigo se registra y lo ingresa';
+
+  @override
+  String get refStep3 => '¡Ambos reciben monedas al instante!';
+
+  @override
+  String get refApplyCode => 'Tengo un código de amigo';
+
+  @override
+  String get refApplyTitle => 'Ingresar código de amigo';
+
+  @override
+  String get refApplyHint => 'Ej: WILLY2026';
+
+  @override
+  String get refApplyBtn => 'Aplicar';
+
+  @override
+  String get refApplyOk => '¡Código aplicado! Recibiste 50 monedas 🎉';
+
+  @override
+  String get refApplyAlreadyUsed =>
+      'Ya usaste un código de referido anteriormente';
+
+  @override
+  String get refApplyInvalid => 'Código inválido. Revisa y vuelve a intentarlo';
+
+  @override
+  String get refApplyOwn => 'No puedes usar tu propio código 😄';
+
+  @override
+  String get refApplyError => 'Error al aplicar el código. Intenta de nuevo';
+
+  @override
+  String get refHistory => 'Mis referidos';
+
+  @override
+  String get refNoHistory => 'Aún no has referido a nadie';
+
+  @override
+  String get refNoHistoryDesc =>
+      'Comparte tu código y gana 100 monedas por cada amigo que se una';
+
+  @override
+  String refFriendJoined(String fecha) {
+    return 'Se unió el $fecha';
+  }
+
+  @override
+  String get refPromptTitle => '¿Tienes un código de amigo?';
+
+  @override
+  String get refPromptBody =>
+      'Si alguien te invitó a EstudiApp, ingresa su código y recibe 50 monedas de bienvenida 🎁';
+
+  @override
+  String get refPromptSkip => 'No tengo código';
+
+  @override
+  String get gridReferidos => 'Referidos';
 }

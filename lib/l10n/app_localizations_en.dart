@@ -428,7 +428,11 @@ class AppLocalizationsEn extends AppLocalizations {
   String get tryFree => 'Try 7 days free';
 
   @override
-  String get tryFreeSubtitle => 'No card · One time per account';
+  String get tryFreeSubtitle => 'Payment method required · Auto-renews';
+
+  @override
+  String get trialNeedsPaymentMethod =>
+      'You need a payment method in Google Play to start the free trial. You won\'t be charged during the 7-day trial.';
 
   @override
   String subscribeBtn(String price, String period) {
@@ -1195,4 +1199,96 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get adNotNow => 'Ad not available at this time';
+
+  @override
+  String get refTitle => 'Referral Program';
+
+  @override
+  String get refMyCode => 'Your referral code';
+
+  @override
+  String get refCopyCode => 'Copy';
+
+  @override
+  String get refShareCode => 'Share';
+
+  @override
+  String get refCodeCopied => 'Code copied to clipboard!';
+
+  @override
+  String refShareText(String codigo) {
+    return 'Join EstudiApp with my code $codigo and get 50 welcome coins! 🎓\n\nStudy with AI, gamify your habits and improve your grades. Download it free!';
+  }
+
+  @override
+  String refTotalCoins(int n) {
+    return 'Total earned: $n 🪙';
+  }
+
+  @override
+  String get refHowItWorks => 'How it works';
+
+  @override
+  String get refStep1 => 'Share your code with a friend';
+
+  @override
+  String get refStep2 => 'Your friend signs up and enters it';
+
+  @override
+  String get refStep3 => 'You both get coins instantly!';
+
+  @override
+  String get refApplyCode => 'I have a friend\'s code';
+
+  @override
+  String get refApplyTitle => 'Enter friend\'s code';
+
+  @override
+  String get refApplyHint => 'E.g. WILLY2026';
+
+  @override
+  String get refApplyBtn => 'Apply';
+
+  @override
+  String get refApplyOk => 'Code applied! You received 50 coins 🎉';
+
+  @override
+  String get refApplyAlreadyUsed => 'You already used a referral code';
+
+  @override
+  String get refApplyInvalid => 'Invalid code. Please check and try again';
+
+  @override
+  String get refApplyOwn => 'You can\'t use your own code 😄';
+
+  @override
+  String get refApplyError => 'Error applying code. Please try again';
+
+  @override
+  String get refHistory => 'My referrals';
+
+  @override
+  String get refNoHistory => 'You haven\'t referred anyone yet';
+
+  @override
+  String get refNoHistoryDesc =>
+      'Share your code and earn 100 coins for every friend who joins';
+
+  @override
+  String refFriendJoined(String fecha) {
+    return 'Joined on $fecha';
+  }
+
+  @override
+  String get refPromptTitle => 'Have a friend\'s code?';
+
+  @override
+  String get refPromptBody =>
+      'If someone invited you to EstudiApp, enter their code and get 50 welcome coins 🎁';
+
+  @override
+  String get refPromptSkip => 'I don\'t have a code';
+
+  @override
+  String get gridReferidos => 'Referrals';
 }

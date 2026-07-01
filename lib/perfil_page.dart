@@ -10,6 +10,7 @@ import 'services/carrera_service.dart';
 import 'services/premium_service.dart';
 import 'services/idioma_service.dart';
 import 'premium_page.dart';
+import 'referidos_page.dart';
 import 'l10n_helper.dart';
 
 class PerfilPage extends StatefulWidget {
@@ -240,6 +241,14 @@ class _PerfilPageState extends State<PerfilPage> {
               label: l10n.academicProfiles,
               onTap: () => Navigator.push(
                   context, MaterialPageRoute(builder: (_) => const PerfilesAcademicosPage())),
+            ),
+            const SizedBox(height: 10),
+            _navBtn(
+              icon: Icons.card_giftcard,
+              color: const Color(0xFF5DE0C5),
+              label: l10n.refTitle,
+              onTap: () => Navigator.push(
+                  context, MaterialPageRoute(builder: (_) => const ReferidosPage())),
             ),
             const SizedBox(height: 10),
 

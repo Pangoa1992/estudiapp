@@ -1,6 +1,8 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'package:in_app_purchase/in_app_purchase.dart';
+import 'package:in_app_purchase_android/in_app_purchase_android.dart';
 import 'services/premium_service.dart';
 import 'l10n_helper.dart';
 
@@ -23,6 +25,11 @@ class _PremiumPageState extends State<PremiumPage> {
   bool _loadingProducts = true;
   ProductDetails? _productoMensual;
   ProductDetails? _productoAnual;
+  // Oferta de suscripción de Google Play que incluye una fase de prueba
+  // gratuita. Solo aparece si Play Console tiene configurada esa oferta y el
+  // usuario es elegible (Google exige un método de pago para iniciarla y
+  // auto-cobra al vencer). Si es null, NO se ofrece prueba gratuita.
+  GooglePlayProductDetails? _ofertaTrial;
   bool _planAnualSeleccionado = true; // anual recomendado por defecto
   late StreamSubscription<List<PurchaseDetails>> _purchaseSub;
 
@@ -75,6 +82,7 @@ class _PremiumPageState extends State<PremiumPage> {
         if (_productoAnual == null && _productoMensual != null) {
           _planAnualSeleccionado = false;
         }
+        _ofertaTrial = _buscarOfertaTrial(res.productDetails);
         _loadingProducts = false;
       });
     } catch (_) {
@@ -86,12 +94,25 @@ class _PremiumPageState extends State<PremiumPage> {
     for (final p in purchases) {
       if (p.productID != _kProductId && p.productID != _kProductIdAnual) continue;
 
+      FirebaseCrashlytics.instance.log(
+        '[Premium] PremiumPage evento: status=${p.status} product=${p.productID}',
+      );
+
       if (p.status == PurchaseStatus.purchased ||
           p.status == PurchaseStatus.restored) {
-        await PremiumService.activarDesdePago(
-          planId: p.productID,
-          purchaseToken: p.verificationData.serverVerificationData,
-        );
+        try {
+          await PremiumService.activarDesdePago(
+            planId: p.productID,
+            purchaseToken: p.verificationData.serverVerificationData,
+          );
+          FirebaseCrashlytics.instance.log(
+            '[Premium] activarDesdePago OK: ${p.productID}',
+          );
+        } catch (e, st) {
+          FirebaseCrashlytics.instance.recordError(
+            e, st, reason: 'activarDesdePago falló en PremiumPage: ${p.productID}',
+          );
+        }
         if (p.pendingCompletePurchase) {
           await InAppPurchase.instance.completePurchase(p);
         }
@@ -113,6 +134,11 @@ class _PremiumPageState extends State<PremiumPage> {
           ));
         }
       } else if (p.status == PurchaseStatus.error) {
+        FirebaseCrashlytics.instance.recordError(
+          Exception('IAP error: ${p.error?.message} [${p.error?.code}]'),
+          null,
+          reason: 'Pago fallido en PremiumPage: ${p.productID}',
+        );
         if (p.pendingCompletePurchase) {
           await InAppPurchase.instance.completePurchase(p);
         }
@@ -128,25 +154,52 @@ class _PremiumPageState extends State<PremiumPage> {
     if (mounted) setState(() => _loading = false);
   }
 
+  /// Busca entre las ofertas devueltas por Google Play una que tenga una fase
+  /// de precio 0 (prueba gratuita). Cada [GooglePlayProductDetails] representa
+  /// una única oferta de un plan base. Devuelve `null` si ninguna tiene prueba
+  /// gratuita (p. ej. no está configurada en Play Console o el usuario ya no es
+  /// elegible por haberla usado antes).
+  GooglePlayProductDetails? _buscarOfertaTrial(List<ProductDetails> productos) {
+    for (final p in productos) {
+      if (p is! GooglePlayProductDetails) continue;
+      final idx = p.subscriptionIndex;
+      final ofertas = p.productDetails.subscriptionOfferDetails;
+      if (idx == null || ofertas == null || idx >= ofertas.length) continue;
+      final tieneFaseGratis = ofertas[idx]
+          .pricingPhases
+          .any((fase) => fase.priceAmountMicros == 0);
+      if (tieneFaseGratis) return p;
+    }
+    return null;
+  }
+
+  /// Inicia la prueba gratuita a través de Google Play (NO es un regalo local).
+  /// Google Play exige un método de pago para arrancar el trial y auto-cobra la
+  /// suscripción al vencer los 7 días. El resultado de la compra lo procesa
+  /// [_handlePurchases] (y el listener global de main.dart para las renovaciones).
   Future<void> _activarTrial() async {
+    final oferta = _ofertaTrial;
+    // Si no hay oferta de prueba de Google Play disponible/elegible, no se
+    // concede nada gratis: se informa que se requiere un método de pago.
+    if (oferta == null) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(context.l10n.trialNeedsPaymentMethod),
+        backgroundColor: const Color(0xFF2A2A3E),
+        duration: const Duration(seconds: 5),
+      ));
+      return;
+    }
     setState(() => _loading = true);
-    final activado = await PremiumService.activarTrialGratuito();
-    if (!mounted) return;
-    if (activado) {
-      await _load();
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text(context.l10n.trialSuccess),
-        backgroundColor: const Color(0xFF5DE0C5),
-        duration: const Duration(seconds: 3),
-      ));
-    } else {
-      if (!mounted) return;
-      setState(() { _loading = false; _trialDisponible = false; });
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text(context.l10n.trialUsed),
-        backgroundColor: const Color(0xFF1E1E2A),
-      ));
+    try {
+      await InAppPurchase.instance.buyNonConsumable(
+        purchaseParam: GooglePlayPurchaseParam(
+          productDetails: oferta,
+          offerToken: oferta.offerToken,
+        ),
+      );
+    } catch (_) {
+      if (mounted) setState(() => _loading = false);
     }
   }
 
@@ -254,7 +307,9 @@ class _PremiumPageState extends State<PremiumPage> {
             if (_isPremium) ...[
               _activoCard(l10n),
             ] else ...[
-              if (_trialDisponible) ...[
+              // Solo se muestra si el usuario nunca usó el trial (flag local)
+              // Y Google Play tiene una oferta de prueba gratuita elegible.
+              if (_trialDisponible && _ofertaTrial != null) ...[
                 _botonTrialGratuito(l10n),
                 const SizedBox(height: 12),
               ],
