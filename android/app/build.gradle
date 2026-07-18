@@ -49,6 +49,8 @@ android {
     buildTypes {
         release {
             signingConfig = signingConfigs.release
+            // Reglas ProGuard/R8 necesarias para el SDK de Meta Audience Network.
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
         }
     }
 }
