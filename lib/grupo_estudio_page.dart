@@ -542,17 +542,23 @@ class _SalaEstudioPageState extends State<SalaEstudioPage> {
   Future<void> _actualizarMiembro(Map<String, dynamic> campos) async {
     final uid = _user?.uid;
     if (uid == null) return;
-    final doc = await _db.collection('grupos_estudio').doc(widget.grupoId).get();
-    final miembros =
-        List<Map<String, dynamic>>.from((doc.data()?['miembros'] as List? ?? [])
-            .map((m) => Map<String, dynamic>.from(m as Map)));
-    final idx = miembros.indexWhere((m) => m['userId'] == uid);
-    if (idx != -1) {
-      miembros[idx].addAll(campos);
-      await _db
-          .collection('grupos_estudio')
-          .doc(widget.grupoId)
-          .update({'miembros': miembros});
+    // El .get() lanza sin internet; se ejecuta en un Timer.periodic cada 30 s y
+    // al entrar a la sala, así que nunca debe propagar (evita crash fatal).
+    try {
+      final doc = await _db.collection('grupos_estudio').doc(widget.grupoId).get();
+      final miembros =
+          List<Map<String, dynamic>>.from((doc.data()?['miembros'] as List? ?? [])
+              .map((m) => Map<String, dynamic>.from(m as Map)));
+      final idx = miembros.indexWhere((m) => m['userId'] == uid);
+      if (idx != -1) {
+        miembros[idx].addAll(campos);
+        await _db
+            .collection('grupos_estudio')
+            .doc(widget.grupoId)
+            .update({'miembros': miembros});
+      }
+    } catch (e) {
+      debugPrint('[GrupoEstudio] _actualizarMiembro falló: $e');
     }
   }
 

@@ -1,11 +1,12 @@
 import 'dart:ui' show PlatformDispatcher;
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:google_mobile_ads/google_mobile_ads.dart';
+import 'package:easy_audience_network/easy_audience_network.dart';
 import 'package:in_app_purchase/in_app_purchase.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:async';
@@ -65,10 +66,26 @@ void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
 
-  // Crashlytics — captura todos los crashes automáticamente
-  FlutterError.onError = FirebaseCrashlytics.instance.recordFlutterFatalError;
+  // Crashlytics — captura todos los crashes automáticamente.
+  // Los errores de red (sin internet) se registran como NO fatales: siguen
+  // siendo visibles en Crashlytics para monitoreo, pero no inflan el conteo de
+  // crashes ni se reportan como fallos fatales. Esto neutraliza toda la clase de
+  // SocketException/TimeoutException que puede surgir de llamadas de red no
+  // capturadas (imágenes, http, Firestore) cuando el dispositivo está offline.
+  bool _esErrorDeRed(Object? e) =>
+      e is SocketException || e is TimeoutException || e is HttpException;
+
+  FlutterError.onError = (details) {
+    if (_esErrorDeRed(details.exception)) {
+      FirebaseCrashlytics.instance
+          .recordError(details.exception, details.stack, fatal: false);
+    } else {
+      FirebaseCrashlytics.instance.recordFlutterFatalError(details);
+    }
+  };
   PlatformDispatcher.instance.onError = (error, stack) {
-    FirebaseCrashlytics.instance.recordError(error, stack, fatal: true);
+    FirebaseCrashlytics.instance
+        .recordError(error, stack, fatal: !_esErrorDeRed(error));
     return true;
   };
 
@@ -85,7 +102,9 @@ void main() async {
     CacheService.inicializar(),
     IdiomaService.cargar(),
   ]);
-  unawaited(MobileAds.instance.initialize());
+  // Meta Audience Network: testMode usa anuncios de prueba en debug y
+  // anuncios reales en release. App ID: 4499034070413225.
+  unawaited(EasyAudienceNetwork.init(testMode: kDebugMode));
   runApp(const MyApp());
 }
 
@@ -211,9 +230,19 @@ class HomePage extends StatefulWidget {
 class _HomePageState extends State<HomePage> {
   final user = FirebaseAuth.instance.currentUser;
   final _db = FirebaseFirestore.instance;
-  BannerAd? _bannerAd;
-  bool _bannerAdReady = false;
+  static const _bannerPlacementId = '4499034070413225_4499034527079846';
   bool _bannerAdFailed = false;
+  // El widget de banner se crea una sola vez (late final) para que no se
+  // recargue en cada rebuild de la pantalla. Meta lo carga automáticamente.
+  late final Widget _bannerAd = BannerAd(
+    placementId: _bannerPlacementId,
+    bannerSize: BannerSize.STANDARD,
+    listener: BannerAdListener(
+      onError: (code, message) {
+        if (mounted) setState(() => _bannerAdFailed = true);
+      },
+    ),
+  );
   int _rachaWidget = 0;
   List<String> _habitosWidget = [];
   int _misionesWidget = 0;
@@ -252,27 +281,11 @@ class _HomePageState extends State<HomePage> {
       unawaited(ResenaService.checkPorDiasDeUso());
       unawaited(ResenaService.checkPorSesiones());
     });
-    _bannerAd = BannerAd(
-      adUnitId: 'ca-app-pub-6530298594670805/7501861973',
-      request: const AdRequest(),
-      size: AdSize.banner,
-      listener: BannerAdListener(
-        onAdLoaded: (_) => setState(() => _bannerAdReady = true),
-        onAdFailedToLoad: (ad, error) {
-          ad.dispose();
-          setState(() {
-            _bannerAdReady = false;
-            _bannerAdFailed = true;
-          });
-        },
-      ),
-    )..load();
   }
 
   @override
   void dispose() {
     _iapSub?.cancel();
-    _bannerAd?.dispose();
     super.dispose();
   }
 
@@ -623,23 +636,18 @@ class _HomePageState extends State<HomePage> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFF0F0F14),
-      bottomNavigationBar: _bannerAdReady
-          ? SizedBox(
-              height: _bannerAd!.size.height.toDouble(),
-              width: _bannerAd!.size.width.toDouble(),
-              child: AdWidget(ad: _bannerAd!),
+      bottomNavigationBar: _bannerAdFailed
+          ? Container(
+              height: 32,
+              color: context.bgPrimary,
+              alignment: Alignment.center,
+              child: const Text(
+                'Anuncio no disponible en este momento',
+                style: TextStyle(color: Colors.white24, fontSize: 11),
+              ),
             )
-          : _bannerAdFailed
-              ? Container(
-                  height: 32,
-                  color: context.bgPrimary,
-                  alignment: Alignment.center,
-                  child: const Text(
-                    'Anuncio no disponible en este momento',
-                    style: TextStyle(color: Colors.white24, fontSize: 11),
-                  ),
-                )
-              : null,
+          // BannerSize.STANDARD mide 50px de alto.
+          : SizedBox(height: 50, child: _bannerAd),
       body: Container(
         decoration: const BoxDecoration(
           gradient: LinearGradient(
@@ -720,6 +728,12 @@ class _HomePageState extends State<HomePage> {
                         backgroundColor: const Color(0xFF7C6AF7),
                         backgroundImage: user?.photoURL != null
                             ? NetworkImage(user!.photoURL!)
+                            : null,
+                        // Sin internet, NetworkImage lanza SocketException en
+                        // _HttpClient.getUrl; sin este handler ese error llega a
+                        // FlutterError.onError y se registra como crash fatal.
+                        onBackgroundImageError: user?.photoURL != null
+                            ? (_, __) {}
                             : null,
                         child: user?.photoURL == null
                             ? Text(

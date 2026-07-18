@@ -110,6 +110,9 @@ class _PerfilPageState extends State<PerfilPage> {
               radius: 50,
               backgroundColor: AppC.purple,
               backgroundImage: user?.photoURL != null ? NetworkImage(user!.photoURL!) : null,
+              // Evita crash por SocketException al cargar el avatar sin internet.
+              onBackgroundImageError:
+                  user?.photoURL != null ? (_, __) {} : null,
               child: user?.photoURL == null
                   ? Text(
                       (user?.displayName?.isNotEmpty == true

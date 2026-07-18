@@ -1,9 +1,9 @@
 import { onCall, HttpsError } from "firebase-functions/v2/https";
-import { onDocumentWritten } from "firebase-functions/v2/firestore";
+import { onDocumentWritten, onDocumentCreated } from "firebase-functions/v2/firestore";
 import { onSchedule } from "firebase-functions/v2/scheduler";
 import { setGlobalOptions } from "firebase-functions/v2";
 import { initializeApp } from "firebase-admin/app";
-import { getFirestore } from "firebase-admin/firestore";
+import { getFirestore, FieldValue } from "firebase-admin/firestore";
 import { getMessaging } from "firebase-admin/messaging";
 
 initializeApp();
@@ -351,6 +351,60 @@ export const onPremiumActivado = onDocumentWritten(
       console.info(`[onPremiumActivado] Push al admin. uid=${uid}, plan=${plan}`);
     } catch (e) {
       console.error("[onPremiumActivado] Error al enviar FCM al admin:", e);
+    }
+
+    return null;
+  }
+);
+
+// ── Cloud Function: Otorgar monedas al referidor ──────────────────────────────
+
+/**
+ * Se dispara al crear `referidos/{codigo}/usos/{usuarioId}` (cuando alguien
+ * aplica un código de referido). Otorga al DUEÑO del código sus monedas de
+ * recompensa incrementando `monedas` en su perfil.
+ *
+ * Esta escritura la hace la Cloud Function (Admin SDK) porque el cliente NO
+ * puede escribir el perfil de otro usuario: las reglas de Firestore solo
+ * permiten al propietario. Antes se intentaba desde `aplicarCodigo()` en el
+ * cliente y fallaba con PERMISSION_DENIED (el referidor nunca recibía monedas
+ * y al aplicante le salía "error").
+ *
+ * Idempotencia: cada documento de uso usa el uid del aplicante como id y solo
+ * puede crearse una vez, así que este trigger corre una sola vez por referido.
+ * Los reintentos automáticos están desactivados por defecto en gen2.
+ */
+export const onReferidoUsado = onDocumentCreated(
+  { document: "referidos/{codigo}/usos/{usuarioId}", region: "us-central1" },
+  async (event) => {
+    const codigo = event.params.codigo;
+    const uso = event.data?.data();
+    if (!uso) return null;
+
+    const monedas = Number(uso.monedasReferidor ?? 0);
+    if (monedas <= 0) {
+      console.warn(`[onReferidoUsado] Uso sin monedas. codigo=${codigo}`);
+      return null;
+    }
+
+    // El dueño del código está en el doc padre referidos/{codigo}.uid
+    const refDoc = await db.collection("referidos").doc(codigo).get();
+    const referidorUid = refDoc.data()?.uid as string | undefined;
+    if (!referidorUid) {
+      console.warn(`[onReferidoUsado] Código sin dueño. codigo=${codigo}`);
+      return null;
+    }
+
+    try {
+      await db.collection("perfiles").doc(referidorUid).set(
+        { monedas: FieldValue.increment(monedas) },
+        { merge: true }
+      );
+      console.info(
+        `[onReferidoUsado] +${monedas} monedas al referidor ${referidorUid} (codigo=${codigo}).`
+      );
+    } catch (e) {
+      console.error(`[onReferidoUsado] Error al otorgar monedas: ${e}`);
     }
 
     return null;

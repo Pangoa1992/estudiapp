@@ -38,6 +38,9 @@ class _ExamenesPageState extends State<ExamenesPage> {
         }
         return data;
       }).toList());
+    }, onError: (e) {
+      // Un error de snapshot sin onError se reenvía a la zona → crash fatal.
+      debugPrint('[Examenes] snapshots error: $e');
     });
   }
 

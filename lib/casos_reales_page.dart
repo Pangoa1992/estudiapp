@@ -44,8 +44,13 @@ class _CasosRealesPageState extends State<CasosRealesPage>
   Future<void> _cargarCarrera() async {
     final uid = FirebaseAuth.instance.currentUser?.uid;
     if (uid == null) return;
-    final doc = await FirebaseFirestore.instance.collection('perfiles').doc(uid).get();
-    if (mounted) setState(() => _carrera = (doc.data()?['carrera'] as String?) ?? 'Otra');
+    try {
+      final doc = await FirebaseFirestore.instance.collection('perfiles').doc(uid).get();
+      if (mounted) setState(() => _carrera = (doc.data()?['carrera'] as String?) ?? 'Otra');
+    } catch (e) {
+      // Sin internet el .get() lanza; se conserva el valor por defecto 'Otra'.
+      debugPrint('[CasosReales] error al cargar carrera: $e');
+    }
   }
 
   Future<void> _iniciarCaso(String escenario) async {

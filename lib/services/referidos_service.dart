@@ -59,8 +59,11 @@ class ReferidosService {
       });
       return codigo;
     } catch (e) {
+      // Propagamos el error: quien llama debe distinguir "falló" de
+      // "no autenticado" (que sí devuelve '') y mostrarle al usuario un
+      // mensaje + botón de reintento en vez de dejar los botones muertos.
       debugPrint('[ReferidosService] generarOObtenerCodigo: $e');
-      return '';
+      rethrow;
     }
   }
 
@@ -105,13 +108,13 @@ class ReferidosService {
         );
       });
 
+      // Las 50 monedas de bienvenida son para el usuario actual (su propio
+      // perfil → permitido por las reglas de Firestore).
       await MonedasService.agregar(monedasNuevoUsuario, 'referido_bienvenida');
-      if (refUid != null) {
-        await _db.collection('perfiles').doc(refUid).set(
-          {'monedas': FieldValue.increment(monedasReferidor)},
-          SetOptions(merge: true),
-        );
-      }
+      // Las 100 monedas del REFERIDOR las otorga la Cloud Function
+      // `onReferidoUsado` (Admin SDK), disparada al crear el doc en
+      // referidos/{codigo}/usos/{uid}. El cliente NO puede escribir el perfil
+      // de otro usuario (reglas: solo el propietario), por eso no se hace aquí.
       return 'ok';
     } catch (e) {
       debugPrint('[ReferidosService] aplicarCodigo: $e');

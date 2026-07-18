@@ -2432,6 +2432,12 @@ abstract class AppLocalizations {
   /// **'Error al aplicar el código. Intenta de nuevo'**
   String get refApplyError;
 
+  /// No description provided for @refCodeError.
+  ///
+  /// In es, this message translates to:
+  /// **'No pudimos cargar tu código. Revisa tu conexión e inténtalo de nuevo.'**
+  String get refCodeError;
+
   /// No description provided for @refHistory.
   ///
   /// In es, this message translates to:

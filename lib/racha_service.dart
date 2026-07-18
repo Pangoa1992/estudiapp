@@ -10,7 +10,16 @@ class RachaService {
 
   Future<void> verificarRacha() async {
     if (_user == null) return;
+    try {
+      await _verificarRacha();
+    } catch (e) {
+      // Sin internet, docRef.get() lanza; se llama fire-and-forget en cada
+      // apertura de la app, así que nunca debe propagar (evita crash fatal).
+      debugPrint('[RachaService] verificarRacha falló: $e');
+    }
+  }
 
+  Future<void> _verificarRacha() async {
     final docRef = _db.collection('perfiles').doc(_user!.uid);
     final doc = await docRef.get();
 

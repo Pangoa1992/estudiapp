@@ -45,6 +45,9 @@ class _HabitosPageState extends State<HabitosPage> {
       CacheService.guardarHabitos(snap.docs
           .map((d) => {'id': d.id, ...d.data()})
           .toList());
+    }, onError: (e) {
+      // Un error de snapshot sin onError se reenvía a la zona → crash fatal.
+      debugPrint('[Habitos] snapshots error: $e');
     });
   }
 

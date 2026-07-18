@@ -61,13 +61,20 @@ class _EstadisticasPageState extends State<EstadisticasPage> {
       if (mounted) setState(() => _cargando = false);
       return;
     }
-    await Future.wait([
-      _cargarMinutos(),
-      _cargarNotasPorMateria(),
-      _cargarHistorialRacha(),
-      _cargarResumenSemanal(),
-    ]);
-    if (mounted) setState(() => _cargando = false);
+    try {
+      await Future.wait([
+        _cargarMinutos(),
+        _cargarNotasPorMateria(),
+        _cargarHistorialRacha(),
+        _cargarResumenSemanal(),
+      ]);
+    } catch (e) {
+      // Sin internet los .get() lanzan; se muestran los datos que sí cargaron
+      // y se evita dejar el spinner girando para siempre (o un crash fatal).
+      debugPrint('[Estadisticas] error al cargar: $e');
+    } finally {
+      if (mounted) setState(() => _cargando = false);
+    }
   }
 
   Future<void> _cargarMinutos() async {

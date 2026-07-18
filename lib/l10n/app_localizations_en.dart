@@ -1265,6 +1265,10 @@ class AppLocalizationsEn extends AppLocalizations {
   String get refApplyError => 'Error applying code. Please try again';
 
   @override
+  String get refCodeError =>
+      'We couldn\'t load your code. Check your connection and try again.';
+
+  @override
   String get refHistory => 'My referrals';
 
   @override

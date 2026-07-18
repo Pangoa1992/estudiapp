@@ -421,6 +421,7 @@
   "refApplyInvalid": "Invalid code. Please check and try again",
   "refApplyOwn": "You can't use your own code 😄",
   "refApplyError": "Error applying code. Please try again",
+  "refCodeError": "We couldn't load your code. Check your connection and try again.",
   "refHistory": "My referrals",
   "refNoHistory": "You haven't referred anyone yet",
   "refNoHistoryDesc": "Share your code and earn 100 coins for every friend who joins",

@@ -6,7 +6,27 @@
       "Bash(Sort-Object FullName)",
       "Bash(flutter analyze *)",
       "Bash(where flutter *)",
-      "Read(//c/Users/WILLY/**)"
+      "Read(//c/Users/WILLY/**)",
+      "Bash(Get-ChildItem -Path \"D:\\\\app_universitaria\" -Recurse -Directory)",
+      "Bash(Select-Object -ExpandProperty FullName)",
+      "Bash(Sort-Object)",
+      "Bash(dart analyze *)",
+      "Bash(Get-ChildItem D:\\\\app_universitaria\\\\lib -Name)",
+      "Bash(flutter devices *)",
+      "Bash(flutter build *)",
+      "Bash(flutter run *)",
+      "Bash(powershell -Command \"Get-Content 'C:\\\\Users\\\\WILLY\\\\.claude\\\\projects\\\\D--app-universitaria\\\\299b94f8-6411-4064-a3b5-26c37d8235dd.jsonl' | Select-Object -Last 100\")",
+      "Bash(powershell *)",
+      "Bash(Get-ChildItem D:\\\\app_universitaria -Filter \"firestore*\")",
+      "Bash(Get-ChildItem D:\\\\app_universitaria -Filter \".firebase*\")",
+      "Bash(Get-ChildItem D:\\\\app_universitaria -Filter \"firebase.json\")",
+      "Bash(firebase *)",
+      "Bash(flutter pub *)",
+      "Bash(adb devices *)",
+      "PowerShell(adb devices *)",
+      "PowerShell(flutter devices *)",
+      "PowerShell(flutter install *)",
+      "PowerShell(flutter build *)"
     ]
   }
 }

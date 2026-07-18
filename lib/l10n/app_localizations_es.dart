@@ -1268,6 +1268,10 @@ class AppLocalizationsEs extends AppLocalizations {
   String get refApplyError => 'Error al aplicar el código. Intenta de nuevo';
 
   @override
+  String get refCodeError =>
+      'No pudimos cargar tu código. Revisa tu conexión e inténtalo de nuevo.';
+
+  @override
   String get refHistory => 'Mis referidos';
 
   @override

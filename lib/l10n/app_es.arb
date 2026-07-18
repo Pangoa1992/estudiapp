@@ -592,6 +592,7 @@
   "refApplyInvalid": "Código inválido. Revisa y vuelve a intentarlo",
   "refApplyOwn": "No puedes usar tu propio código 😄",
   "refApplyError": "Error al aplicar el código. Intenta de nuevo",
+  "refCodeError": "No pudimos cargar tu código. Revisa tu conexión e inténtalo de nuevo.",
   "refHistory": "Mis referidos",
   "refNoHistory": "Aún no has referido a nadie",
   "refNoHistoryDesc": "Comparte tu código y gana 100 monedas por cada amigo que se una",

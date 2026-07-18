@@ -51,8 +51,13 @@ class _FeynmanPageState extends State<FeynmanPage>
   Future<void> _cargarCarrera() async {
     final uid = FirebaseAuth.instance.currentUser?.uid;
     if (uid == null) return;
-    final doc = await FirebaseFirestore.instance.collection('perfiles').doc(uid).get();
-    if (mounted) setState(() => _carrera = (doc.data()?['carrera'] as String?) ?? '');
+    try {
+      final doc = await FirebaseFirestore.instance.collection('perfiles').doc(uid).get();
+      if (mounted) setState(() => _carrera = (doc.data()?['carrera'] as String?) ?? '');
+    } catch (e) {
+      // Sin internet el .get() lanza; se mantiene la carrera vacía por defecto.
+      debugPrint('[Feynman] error al cargar carrera: $e');
+    }
   }
 
   Future<void> _iniciarFeynman() async {

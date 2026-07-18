@@ -10,7 +10,7 @@ import 'package:file_picker/file_picker.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:path_provider/path_provider.dart';
-import 'package:google_mobile_ads/google_mobile_ads.dart';
+import 'package:easy_audience_network/easy_audience_network.dart';
 import 'models/flashcard_srs_model.dart';
 import 'services/srs_service.dart';
 import 'services/carrera_service.dart';
@@ -38,124 +38,57 @@ class _IAPageState extends State<IAPage> {
   bool _cargandoChat = false;
   String _temaActual = '';
 
-  // ── ADS + LÍMITE DIARIO ────────────────────────────────
+  // ── ADS (Meta Audience Network) + LÍMITE DIARIO ─────────
+  static const _interstitialPlacementId =
+      '4499034070413225_4499034523746513';
+
   InterstitialAd? _interstitialAd;
+  bool _interstitialLoaded = false;
   int _contadorUsos = 0;
   RewardedAd? _rewardedAd;
-  RewardedInterstitialAd? _rewardedInterstitialAd;
+  bool _rewardedLoaded = false;
+  RewardedAd? _rewardedInterstitialAd;
+  bool _rewardedInterstitialLoaded = false;
   int _busquedasRestantes = IaLimiteService.limiteGratuito;
 
   void _cargarIntersticial() {
-    InterstitialAd.load(
-      adUnitId: 'ca-app-pub-6530298594670805/6956014522',
-      request: const AdRequest(),
-      adLoadCallback: InterstitialAdLoadCallback(
-        onAdLoaded: (ad) => _interstitialAd = ad,
-        onAdFailedToLoad: (error) => _interstitialAd = null,
-      ),
+    final ad = InterstitialAd(_interstitialPlacementId);
+    ad.listener = InterstitialAdListener(
+      onLoaded: () => _interstitialLoaded = true,
+      onDismissed: () {
+        _interstitialLoaded = false;
+        ad.destroy();
+        _cargarIntersticial(); // precarga el siguiente
+      },
+      onError: (code, message) {
+        _interstitialLoaded = false;
+        ad.destroy();
+      },
     );
+    _interstitialAd = ad;
+    ad.load();
   }
 
   void _mostrarIntersticial() {
     _contadorUsos++;
-    if (_contadorUsos % 3 == 0 && _interstitialAd != null) {
+    if (_contadorUsos % 3 == 0 && _interstitialLoaded && _interstitialAd != null) {
       _interstitialAd!.show();
-      _interstitialAd = null;
-      _cargarIntersticial();
+      _interstitialLoaded = false;
+      // onDismissed destruye la instancia y precarga la siguiente.
     }
   }
-  // ── REWARDED AD ───────────────────────────────────────
-  static const _rewardedAdUnitId = 'ca-app-pub-6530298594670805/5148826414';
-
-  // ── REWARDED INTERSTITIAL — simulacro (+2 búsquedas) ─────────────────────
-  static const _rewardedInterstitialAdUnitId =
-      'ca-app-pub-6530298594670805/1966232096';
+  // ── REWARDED AD (video recompensado de Meta) ──────────
+  // TODO: reemplazar por el Placement ID del bloque de VIDEO RECOMPENSADO
+  // creado en el panel de Meta Audience Network (App ID 4499034070413225).
+  // Mismo bloque sirve para el +3 de búsquedas y el +2 de simulacro; el monto
+  // de la recompensa lo controla la app, no el bloque de anuncio.
+  static const _rewardedPlacementId = 'REWARDED_PLACEMENT_ID';
 
   void _cargarRewardedAd() {
-    RewardedAd.load(
-      adUnitId: _rewardedAdUnitId,
-      request: const AdRequest(),
-      rewardedAdLoadCallback: RewardedAdLoadCallback(
-        onAdLoaded: (ad) {
-          _rewardedAd = ad;
-          _rewardedAd!.fullScreenContentCallback = FullScreenContentCallback(
-            onAdDismissedFullScreenContent: (ad) {
-              ad.dispose();
-              _rewardedAd = null;
-              _cargarRewardedAd(); // precarga el siguiente
-            },
-            onAdFailedToShowFullScreenContent: (ad, error) {
-              ad.dispose();
-              _rewardedAd = null;
-              _cargarRewardedAd();
-            },
-          );
-        },
-        onAdFailedToLoad: (_) => _rewardedAd = null,
-      ),
-    );
-  }
-
-  void _cargarRewardedInterstitialAd() {
-    RewardedInterstitialAd.load(
-      adUnitId: _rewardedInterstitialAdUnitId,
-      request: const AdRequest(),
-      rewardedInterstitialAdLoadCallback: RewardedInterstitialAdLoadCallback(
-        onAdLoaded: (ad) {
-          _rewardedInterstitialAd = ad;
-          _rewardedInterstitialAd!.fullScreenContentCallback =
-              FullScreenContentCallback(
-            onAdDismissedFullScreenContent: (ad) {
-              ad.dispose();
-              _rewardedInterstitialAd = null;
-              _cargarRewardedInterstitialAd();
-            },
-            onAdFailedToShowFullScreenContent: (ad, error) {
-              ad.dispose();
-              _rewardedInterstitialAd = null;
-              _cargarRewardedInterstitialAd();
-            },
-          );
-        },
-        onAdFailedToLoad: (_) => _rewardedInterstitialAd = null,
-      ),
-    );
-  }
-
-  Future<void> _mostrarRewardedInterstitial() async {
-    if (_rewardedInterstitialAd == null) return;
-    await _rewardedInterstitialAd!.show(
-      onUserEarnedReward: (ad, reward) async {
-        await IaLimiteService.agregarBonus(cantidad: 2);
-        await _actualizarRestantes();
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(context.l10n.iaGot2Bonus),
-              backgroundColor: const Color(0xFF5DE0C5),
-            ),
-          );
-        }
-      },
-    );
-  }
-
-  Future<void> _actualizarRestantes() async {
-    final r = await IaLimiteService.restantes();
-    if (mounted) setState(() => _busquedasRestantes = r);
-  }
-
-  Future<void> _mostrarRewardedAd() async {
-    if (_rewardedAd == null) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(context.l10n.iaAdNotAvail)),
-        );
-      }
-      return;
-    }
-    _rewardedAd!.show(
-      onUserEarnedReward: (ad, reward) async {
+    final ad = RewardedAd(_rewardedPlacementId);
+    ad.listener = RewardedAdListener(
+      onLoaded: () => _rewardedLoaded = true,
+      onVideoComplete: () async {
         await IaLimiteService.agregarBonus();
         await _actualizarRestantes();
         if (mounted) {
@@ -167,7 +100,75 @@ class _IAPageState extends State<IAPage> {
           );
         }
       },
+      onVideoClosed: () {
+        _rewardedLoaded = false;
+        ad.destroy();
+        _cargarRewardedAd(); // precarga el siguiente
+      },
+      onError: (code, message) {
+        _rewardedLoaded = false;
+        ad.destroy();
+      },
     );
+    _rewardedAd = ad;
+    ad.load();
+  }
+
+  // ── REWARDED — simulacro (+2 búsquedas) ──────────────────────────────────
+  void _cargarRewardedInterstitialAd() {
+    final ad = RewardedAd(_rewardedPlacementId);
+    ad.listener = RewardedAdListener(
+      onLoaded: () => _rewardedInterstitialLoaded = true,
+      onVideoComplete: () async {
+        await IaLimiteService.agregarBonus(cantidad: 2);
+        await _actualizarRestantes();
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(context.l10n.iaGot2Bonus),
+              backgroundColor: const Color(0xFF5DE0C5),
+            ),
+          );
+        }
+      },
+      onVideoClosed: () {
+        _rewardedInterstitialLoaded = false;
+        ad.destroy();
+        _cargarRewardedInterstitialAd();
+      },
+      onError: (code, message) {
+        _rewardedInterstitialLoaded = false;
+        ad.destroy();
+      },
+    );
+    _rewardedInterstitialAd = ad;
+    ad.load();
+  }
+
+  Future<void> _mostrarRewardedInterstitial() async {
+    if (!_rewardedInterstitialLoaded || _rewardedInterstitialAd == null) return;
+    await _rewardedInterstitialAd!.show();
+    _rewardedInterstitialLoaded = false;
+    // La recompensa se otorga en onVideoComplete; onVideoClosed recarga.
+  }
+
+  Future<void> _actualizarRestantes() async {
+    final r = await IaLimiteService.restantes();
+    if (mounted) setState(() => _busquedasRestantes = r);
+  }
+
+  Future<void> _mostrarRewardedAd() async {
+    if (!_rewardedLoaded || _rewardedAd == null) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(context.l10n.iaAdNotAvail)),
+        );
+      }
+      return;
+    }
+    await _rewardedAd!.show();
+    _rewardedLoaded = false;
+    // La recompensa (+3) se otorga en onVideoComplete; onVideoClosed recarga.
   }
 
   Future<void> _mostrarPasarela() async {
@@ -206,7 +207,7 @@ class _IAPageState extends State<IAPage> {
             SizedBox(
               width: double.infinity,
               child: ElevatedButton.icon(
-                onPressed: _rewardedAd != null
+                onPressed: _rewardedLoaded
                     ? () { Navigator.pop(ctx); _mostrarRewardedAd(); }
                     : null,
                 icon: const Icon(Icons.play_circle_outline, color: Colors.white),
@@ -222,7 +223,7 @@ class _IAPageState extends State<IAPage> {
                 ),
               ),
             ),
-            if (_rewardedAd == null)
+            if (!_rewardedLoaded)
               Padding(
                 padding: const EdgeInsets.only(top: 6),
                 child: Text(
@@ -310,9 +311,9 @@ class _IAPageState extends State<IAPage> {
 
   @override
   void dispose() {
-    _interstitialAd?.dispose();
-    _rewardedAd?.dispose();
-    _rewardedInterstitialAd?.dispose();
+    _interstitialAd?.destroy();
+    _rewardedAd?.destroy();
+    _rewardedInterstitialAd?.destroy();
     _concepto1Controller.dispose();
     _concepto2Controller.dispose();
     _nemotecniaController.dispose();

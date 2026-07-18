@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:google_mobile_ads/google_mobile_ads.dart';
+import 'package:easy_audience_network/easy_audience_network.dart';
 import '../services/ia_limite_service.dart';
 import '../premium_page.dart';
 
@@ -28,14 +28,18 @@ import '../premium_page.dart';
 /// ```
 mixin IaLimiteMixin<T extends StatefulWidget> on State<T> {
   RewardedAd? _iaRewardedAd;
+  bool _iaRewardedLoaded = false;
 
-  static const _rewardedAdUnitId = 'ca-app-pub-6530298594670805/5148826414';
+  // TODO: reemplazar por el Placement ID del bloque de VIDEO RECOMPENSADO
+  // de Meta Audience Network (App ID 4499034070413225). Debe coincidir con el
+  // usado en ia_page.dart (_rewardedPlacementId).
+  static const _rewardedPlacementId = 'REWARDED_PLACEMENT_ID';
 
   // ── Ciclo de vida ─────────────────────────────────────────────────────────
 
   void initIaLimite() => _cargarIaRewardedAd();
 
-  void disposeIaLimite() => _iaRewardedAd?.dispose();
+  void disposeIaLimite() => _iaRewardedAd?.destroy();
 
   // ── API pública ───────────────────────────────────────────────────────────
 
@@ -53,42 +57,10 @@ mixin IaLimiteMixin<T extends StatefulWidget> on State<T> {
   // ── Helpers internos ──────────────────────────────────────────────────────
 
   void _cargarIaRewardedAd() {
-    RewardedAd.load(
-      adUnitId: _rewardedAdUnitId,
-      request: const AdRequest(),
-      rewardedAdLoadCallback: RewardedAdLoadCallback(
-        onAdLoaded: (ad) {
-          _iaRewardedAd = ad;
-          _iaRewardedAd!.fullScreenContentCallback = FullScreenContentCallback(
-            onAdDismissedFullScreenContent: (ad) {
-              ad.dispose();
-              _iaRewardedAd = null;
-              _cargarIaRewardedAd(); // precarga el siguiente
-            },
-            onAdFailedToShowFullScreenContent: (ad, error) {
-              ad.dispose();
-              _iaRewardedAd = null;
-              _cargarIaRewardedAd();
-            },
-          );
-        },
-        onAdFailedToLoad: (_) => _iaRewardedAd = null,
-      ),
-    );
-  }
-
-  Future<void> _mostrarIaRewardedAd() async {
-    if (_iaRewardedAd == null) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-              content: Text('Anuncio no disponible. Intenta en un momento.')),
-        );
-      }
-      return;
-    }
-    _iaRewardedAd!.show(
-      onUserEarnedReward: (ad, reward) async {
+    final ad = RewardedAd(_rewardedPlacementId);
+    ad.listener = RewardedAdListener(
+      onLoaded: () => _iaRewardedLoaded = true,
+      onVideoComplete: () async {
         await IaLimiteService.agregarBonus();
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -99,7 +71,33 @@ mixin IaLimiteMixin<T extends StatefulWidget> on State<T> {
           );
         }
       },
+      onVideoClosed: () {
+        _iaRewardedLoaded = false;
+        ad.destroy();
+        _cargarIaRewardedAd(); // precarga el siguiente
+      },
+      onError: (code, message) {
+        _iaRewardedLoaded = false;
+        ad.destroy();
+      },
     );
+    _iaRewardedAd = ad;
+    ad.load();
+  }
+
+  Future<void> _mostrarIaRewardedAd() async {
+    if (!_iaRewardedLoaded || _iaRewardedAd == null) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+              content: Text('Anuncio no disponible. Intenta en un momento.')),
+        );
+      }
+      return;
+    }
+    await _iaRewardedAd!.show();
+    _iaRewardedLoaded = false;
+    // La recompensa (+3) se otorga en onVideoComplete; onVideoClosed recarga.
   }
 
   Future<void> _mostrarIaPasarela() async {
@@ -141,7 +139,7 @@ mixin IaLimiteMixin<T extends StatefulWidget> on State<T> {
             SizedBox(
               width: double.infinity,
               child: ElevatedButton.icon(
-                onPressed: _iaRewardedAd != null
+                onPressed: _iaRewardedLoaded
                     ? () {
                         Navigator.pop(ctx);
                         _mostrarIaRewardedAd();
@@ -163,7 +161,7 @@ mixin IaLimiteMixin<T extends StatefulWidget> on State<T> {
                 ),
               ),
             ),
-            if (_iaRewardedAd == null)
+            if (!_iaRewardedLoaded)
               const Padding(
                 padding: EdgeInsets.only(top: 6),
                 child: Text(

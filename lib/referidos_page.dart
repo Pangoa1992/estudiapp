@@ -18,6 +18,7 @@ class _ReferidosPageState extends State<ReferidosPage> {
 
   String _codigo = '';
   bool _cargando = true;
+  bool _error = false;
   bool _codigoAplicado = false;
   List<Map<String, dynamic>> _historial = [];
   int _totalMonedas = 0;
@@ -29,7 +30,10 @@ class _ReferidosPageState extends State<ReferidosPage> {
   }
 
   Future<void> _cargar() async {
-    setState(() => _cargando = true);
+    setState(() {
+      _cargando = true;
+      _error = false;
+    });
     try {
       final results = await Future.wait([
         ReferidosService.generarOObtenerCodigo(),
@@ -51,11 +55,19 @@ class _ReferidosPageState extends State<ReferidosPage> {
           _totalMonedas = historial.fold<int>(
               0, (sum, e) => sum + (e['monedasReferidor'] as int? ?? 0));
           _codigoAplicado = yaAplico;
+          // Sin código no hay nada que copiar/compartir: mostramos error +
+          // reintento en vez de dejar los botones deshabilitados sin explicar.
+          _error = codigo.isEmpty;
           _cargando = false;
         });
       }
     } catch (_) {
-      if (mounted) setState(() => _cargando = false);
+      if (mounted) {
+        setState(() {
+          _error = true;
+          _cargando = false;
+        });
+      }
     }
   }
 
@@ -208,7 +220,9 @@ class _ReferidosPageState extends State<ReferidosPage> {
       body: _cargando
           ? const Center(
               child: CircularProgressIndicator(color: Color(0xFF7C6AF7)))
-          : SingleChildScrollView(
+          : _error
+              ? _buildErrorCard(l10n)
+              : SingleChildScrollView(
               padding: const EdgeInsets.all(20),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -226,6 +240,41 @@ class _ReferidosPageState extends State<ReferidosPage> {
                 ],
               ),
             ),
+    );
+  }
+
+  Widget _buildErrorCard(AppLocalizations l10n) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(32),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text('⚠️', style: TextStyle(fontSize: 44)),
+            const SizedBox(height: 16),
+            Text(
+              l10n.refCodeError,
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                  color: Colors.white70, fontSize: 14, height: 1.5),
+            ),
+            const SizedBox(height: 20),
+            ElevatedButton.icon(
+              onPressed: _cargar,
+              icon: const Icon(Icons.refresh, size: 18),
+              label: Text(l10n.retry),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF7C6AF7),
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(
+                    horizontal: 24, vertical: 12),
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12)),
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 

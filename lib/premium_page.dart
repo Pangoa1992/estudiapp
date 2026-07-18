@@ -6,8 +6,17 @@ import 'package:in_app_purchase_android/in_app_purchase_android.dart';
 import 'services/premium_service.dart';
 import 'l10n_helper.dart';
 
+// IMPORTANTE: estos IDs deben coincidir EXACTAMENTE con los de Play Console.
+// El valor anterior del anual era 'estudiapp_premium_mensual:anual', un ID
+// INVÁLIDO: Play Console no permite ':' en los IDs de producto (solo minúsculas,
+// números, '_' y '.'). Por eso queryProductDetails nunca lo encontraba,
+// _productoAnual quedaba null y —al estar el plan anual seleccionado por
+// defecto— el botón mostraba "No disponible en este dispositivo".
+// TODO(verificar): confirmar contra Play Console que el ID del plan anual es
+// realmente 'estudiapp_premium_anual'. El log de diagnóstico en _initIAP
+// registra en Crashlytics los IDs encontrados / no encontrados en producción.
 const _kProductId      = 'estudiapp_premium_mensual';
-const _kProductIdAnual = 'estudiapp_premium_mensual:anual';
+const _kProductIdAnual = 'estudiapp_premium_anual';
 
 class PremiumPage extends StatefulWidget {
   const PremiumPage({super.key});
@@ -72,6 +81,21 @@ class _PremiumPageState extends State<PremiumPage> {
       }
       final res = await InAppPurchase.instance
           .queryProductDetails({_kProductId, _kProductIdAnual});
+      // Diagnóstico: deja constancia en Crashlytics de qué IDs devolvió Play.
+      // Permite verificar contra Play Console sin acceso directo al dispositivo.
+      FirebaseCrashlytics.instance.log(
+        '[Premium] queryProductDetails '
+        'found=${res.productDetails.map((p) => p.id).toList()} '
+        'notFound=${res.notFoundIDs}',
+      );
+      if (res.notFoundIDs.isNotEmpty) {
+        FirebaseCrashlytics.instance.recordError(
+          Exception('IAP productos no encontrados en Play: ${res.notFoundIDs}'),
+          null,
+          reason: 'queryProductDetails notFoundIDs',
+          fatal: false,
+        );
+      }
       if (!mounted) return;
       setState(() {
         _iapAvailable = true;
@@ -79,8 +103,17 @@ class _PremiumPageState extends State<PremiumPage> {
             .where((p) => p.id == _kProductId).firstOrNull;
         _productoAnual = res.productDetails
             .where((p) => p.id == _kProductIdAnual).firstOrNull;
-        if (_productoAnual == null && _productoMensual != null) {
+        // Garantiza que el plan seleccionado por defecto sea uno realmente
+        // disponible (en cualquiera de las dos direcciones), para no mostrar
+        // "No disponible" mientras el otro plan sí se puede comprar.
+        if (_planAnualSeleccionado &&
+            _productoAnual == null &&
+            _productoMensual != null) {
           _planAnualSeleccionado = false;
+        } else if (!_planAnualSeleccionado &&
+            _productoMensual == null &&
+            _productoAnual != null) {
+          _planAnualSeleccionado = true;
         }
         _ofertaTrial = _buscarOfertaTrial(res.productDetails);
         _loadingProducts = false;
