@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="robots" content="index,follow" />
+  <title>Eliminar cuenta · EstudiApp</title>
+  <meta name="description" content="Solicita la eliminación de tu cuenta de EstudiApp y de todos tus datos asociados." />
+  <style>
+    :root {
+      --bg: #0F0F14;
+      --card: #1E1E2A;
+      --purple: #7C6AF7;
+      --teal: #5DE0C5;
+      --text: #FFFFFF;
+      --muted: #A9A9B8;
+      --border: rgba(255, 255, 255, 0.10);
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      line-height: 1.6;
+      padding: 24px 16px 48px;
+      -webkit-font-smoothing: antialiased;
+    }
+    .wrap { max-width: 720px; margin: 0 auto; }
+    .hero {
+      background: linear-gradient(135deg, #7C6AF7 0%, #4A90E2 100%);
+      border-radius: 20px;
+      padding: 32px 24px;
+      text-align: center;
+      margin-bottom: 28px;
+    }
+    .hero .logo { font-size: 48px; }
+    .hero h1 { font-size: 24px; margin-top: 10px; }
+    .hero p { color: rgba(255, 255, 255, 0.85); margin-top: 6px; font-size: 15px; }
+    .card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 22px 20px;
+      margin-bottom: 18px;
+    }
+    h2 {
+      font-size: 13px;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 14px;
+    }
+    p { color: #D8D8E2; font-size: 15px; }
+    ol { margin: 6px 0 0 20px; }
+    ul { margin: 8px 0 0 20px; }
+    li { color: #D8D8E2; font-size: 15px; margin-bottom: 6px; }
+    b, strong { color: #fff; }
+    .btn {
+      display: inline-block;
+      background: var(--purple);
+      color: #fff;
+      text-decoration: none;
+      font-weight: 700;
+      font-size: 16px;
+      padding: 16px 22px;
+      border-radius: 14px;
+      width: 100%;
+      text-align: center;
+      margin-top: 8px;
+      transition: opacity .15s ease;
+    }
+    .btn:hover { opacity: .9; }
+    .pill {
+      display: inline-block;
+      background: rgba(93, 224, 197, 0.15);
+      color: var(--teal);
+      font-size: 12px;
+      font-weight: 700;
+      padding: 4px 10px;
+      border-radius: 8px;
+      margin-bottom: 12px;
+    }
+    .email {
+      color: var(--teal);
+      font-weight: 700;
+      word-break: break-all;
+    }
+    .muted { color: var(--muted); font-size: 13px; }
+    footer {
+      text-align: center;
+      color: var(--muted);
+      font-size: 12px;
+      margin-top: 28px;
+    }
+    a { color: var(--teal); }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="hero">
+      <div class="logo">🎓</div>
+      <h1>Eliminar cuenta</h1>
+      <p>EstudiApp — Organizador académico</p>
+    </div>
+
+    <div class="card">
+      <span class="pill">SOLICITAR ELIMINACIÓN</span>
+      <p>
+        Para eliminar tu cuenta de <b>EstudiApp</b> y todos los datos asociados,
+        envíanos una solicitud desde el <b>mismo correo con el que te registraste</b>.
+        Toca el botón y se abrirá tu app de correo con el mensaje ya preparado:
+      </p>
+      <a class="btn"
+         href="mailto:pasminio456@gmail.com?subject=Solicitud%20de%20eliminaci%C3%B3n%20de%20cuenta%20-%20EstudiApp&body=Hola%2C%0A%0ASolicito%20la%20eliminaci%C3%B3n%20de%20mi%20cuenta%20de%20EstudiApp%20y%20de%20todos%20mis%20datos%20asociados.%0A%0ACorreo%20de%20la%20cuenta%3A%20%0ANombre%20(opcional)%3A%20%0A%0AConfirmo%20que%20soy%20el%20titular%20de%20esta%20cuenta.%0A%0AGracias.">
+        ✉️ Solicitar eliminación por correo
+      </a>
+      <p class="muted" style="margin-top:14px;">
+        ¿El botón no funciona? Escríbenos manualmente a
+        <span class="email">pasminio456@gmail.com</span>
+        con el asunto <b>“Solicitud de eliminación de cuenta - EstudiApp”</b>,
+        indicando el correo de tu cuenta.
+      </p>
+    </div>
+
+    <div class="card">
+      <h2>Qué datos se eliminan</h2>
+      <p>Al procesar tu solicitud se eliminan de forma permanente:</p>
+      <ul>
+        <li>Tu perfil (nombre, correo, foto y preferencias).</li>
+        <li>Tu progreso académico: hábitos, rachas, monedas y logros.</li>
+        <li>Tus exámenes, simulacros, flashcards y materiales generados.</li>
+        <li>Tu participación en grupos de estudio y tu información de referidos.</li>
+        <li>El estado de tu suscripción Premium dentro de la app.</li>
+      </ul>
+    </div>
+
+    <div class="card">
+      <h2>Plazos y retención</h2>
+      <ul>
+        <li>Tu cuenta y tus datos personales se eliminan en un plazo de
+          <b>hasta 30 días</b> desde que recibimos la solicitud.</li>
+        <li>Podemos conservar de forma limitada la información estrictamente
+          necesaria para cumplir obligaciones legales o fiscales (por ejemplo,
+          registros de pagos de suscripciones Premium) durante el periodo que
+          exija la ley, tras lo cual también se elimina.</li>
+        <li>La cancelación de una suscripción Premium activa se gestiona desde
+          <b>Google Play</b>; eliminar la cuenta no cancela automáticamente la
+          suscripción en Google Play.</li>
+      </ul>
+      <p class="muted" style="margin-top:12px;">
+        Te enviaremos una confirmación por correo cuando la eliminación se haya
+        completado.
+      </p>
+    </div>
+
+    <footer>
+      EstudiApp · Contacto: pasminio456@gmail.com
+    </footer>
+  </div>
+</body>
+</html>
