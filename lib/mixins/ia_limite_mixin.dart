@@ -30,10 +30,9 @@ mixin IaLimiteMixin<T extends StatefulWidget> on State<T> {
   RewardedAd? _iaRewardedAd;
   bool _iaRewardedLoaded = false;
 
-  // TODO: reemplazar por el Placement ID del bloque de VIDEO RECOMPENSADO
-  // de Meta Audience Network (App ID 4499034070413225). Debe coincidir con el
-  // usado en ia_page.dart (_rewardedPlacementId).
-  static const _rewardedPlacementId = 'REWARDED_PLACEMENT_ID';
+  // Bloque de VIDEO RECOMPENSADO de Meta (App ID 4499034070413225).
+  // Debe coincidir con el usado en ia_page.dart (_rewardedPlacementId).
+  static const _rewardedPlacementId = '4499034070413225_4499140687069230';
 
   // ── Ciclo de vida ─────────────────────────────────────────────────────────
 

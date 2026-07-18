@@ -78,11 +78,9 @@ class _IAPageState extends State<IAPage> {
     }
   }
   // ── REWARDED AD (video recompensado de Meta) ──────────
-  // TODO: reemplazar por el Placement ID del bloque de VIDEO RECOMPENSADO
-  // creado en el panel de Meta Audience Network (App ID 4499034070413225).
   // Mismo bloque sirve para el +3 de búsquedas y el +2 de simulacro; el monto
   // de la recompensa lo controla la app, no el bloque de anuncio.
-  static const _rewardedPlacementId = 'REWARDED_PLACEMENT_ID';
+  static const _rewardedPlacementId = '4499034070413225_4499140687069230';
 
   void _cargarRewardedAd() {
     final ad = RewardedAd(_rewardedPlacementId);
