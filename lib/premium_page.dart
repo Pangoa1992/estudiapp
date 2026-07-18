@@ -6,17 +6,23 @@ import 'package:in_app_purchase_android/in_app_purchase_android.dart';
 import 'services/premium_service.dart';
 import 'l10n_helper.dart';
 
-// IMPORTANTE: estos IDs deben coincidir EXACTAMENTE con los de Play Console.
-// El valor anterior del anual era 'estudiapp_premium_mensual:anual', un ID
-// INVÁLIDO: Play Console no permite ':' en los IDs de producto (solo minúsculas,
-// números, '_' y '.'). Por eso queryProductDetails nunca lo encontraba,
-// _productoAnual quedaba null y —al estar el plan anual seleccionado por
-// defecto— el botón mostraba "No disponible en este dispositivo".
-// TODO(verificar): confirmar contra Play Console que el ID del plan anual es
-// realmente 'estudiapp_premium_anual'. El log de diagnóstico en _initIAP
-// registra en Crashlytics los IDs encontrados / no encontrados en producción.
-const _kProductId      = 'estudiapp_premium_mensual';
-const _kProductIdAnual = 'estudiapp_premium_anual';
+// IMPORTANTE: en Play Console NO hay dos productos separados. Hay UN ÚNICO
+// producto de suscripción (`estudiapp_premium_mensual`) con VARIOS base plans;
+// uno de ellos tiene el base plan ID 'anual'. Google devuelve un
+// [GooglePlayProductDetails] por cada base plan/oferta, todos con el mismo
+// `id` (= productId) pero distinto `basePlanId` y `offerToken`.
+//
+// El código anterior consultaba un segundo producto 'estudiapp_premium_anual'
+// que NO existe → queryProductDetails lo devolvía en notFoundIDs, _productoAnual
+// quedaba null y —al estar el plan anual seleccionado por defecto— el botón
+// mostraba "No disponible en este dispositivo".
+//
+// Ahora se consulta un solo producto y se distinguen los planes por su
+// `basePlanId`. Como el productID es idéntico para mensual y anual, la duración
+// real (365 vs 31 días) NO puede deducirse del productID: PremiumService guarda
+// el plan elegido justo antes de comprar (ver PremiumService.guardarPlanPendiente).
+const _kProductId     = 'estudiapp_premium_mensual';
+const _kBasePlanAnual = 'anual';
 
 class PremiumPage extends StatefulWidget {
   const PremiumPage({super.key});
@@ -32,8 +38,8 @@ class _PremiumPageState extends State<PremiumPage> {
 
   bool _iapAvailable = false;
   bool _loadingProducts = true;
-  ProductDetails? _productoMensual;
-  ProductDetails? _productoAnual;
+  GooglePlayProductDetails? _productoMensual;
+  GooglePlayProductDetails? _productoAnual;
   // Oferta de suscripción de Google Play que incluye una fase de prueba
   // gratuita. Solo aparece si Play Console tiene configurada esa oferta y el
   // usuario es elegible (Google exige un método de pago para iniciarla y
@@ -80,12 +86,20 @@ class _PremiumPageState extends State<PremiumPage> {
         return;
       }
       final res = await InAppPurchase.instance
-          .queryProductDetails({_kProductId, _kProductIdAnual});
-      // Diagnóstico: deja constancia en Crashlytics de qué IDs devolvió Play.
-      // Permite verificar contra Play Console sin acceso directo al dispositivo.
+          .queryProductDetails({_kProductId});
+
+      // El producto de suscripción se expande en un GooglePlayProductDetails por
+      // cada base plan/oferta (todos con el mismo `id`). Los separamos por
+      // basePlanId: 'anual' → plan anual; cualquier otro → plan mensual.
+      final ofertas =
+          res.productDetails.whereType<GooglePlayProductDetails>().toList();
+
+      // Diagnóstico: deja constancia en Crashlytics de los base plans que
+      // devolvió Play. Permite verificar contra Play Console sin acceso directo
+      // al dispositivo (p. ej. confirmar que existe el base plan 'anual').
       FirebaseCrashlytics.instance.log(
         '[Premium] queryProductDetails '
-        'found=${res.productDetails.map((p) => p.id).toList()} '
+        'basePlans=${ofertas.map((p) => _basePlanId(p) ?? '?').toList()} '
         'notFound=${res.notFoundIDs}',
       );
       if (res.notFoundIDs.isNotEmpty) {
@@ -99,10 +113,10 @@ class _PremiumPageState extends State<PremiumPage> {
       if (!mounted) return;
       setState(() {
         _iapAvailable = true;
-        _productoMensual = res.productDetails
-            .where((p) => p.id == _kProductId).firstOrNull;
-        _productoAnual = res.productDetails
-            .where((p) => p.id == _kProductIdAnual).firstOrNull;
+        _productoAnual =
+            _mejorOfertaBase(ofertas, (bp) => bp == _kBasePlanAnual);
+        _productoMensual =
+            _mejorOfertaBase(ofertas, (bp) => bp != _kBasePlanAnual);
         // Garantiza que el plan seleccionado por defecto sea uno realmente
         // disponible (en cualquiera de las dos direcciones), para no mostrar
         // "No disponible" mientras el otro plan sí se puede comprar.
@@ -125,7 +139,7 @@ class _PremiumPageState extends State<PremiumPage> {
 
   Future<void> _handlePurchases(List<PurchaseDetails> purchases) async {
     for (final p in purchases) {
-      if (p.productID != _kProductId && p.productID != _kProductIdAnual) continue;
+      if (p.productID != _kProductId) continue;
 
       FirebaseCrashlytics.instance.log(
         '[Premium] PremiumPage evento: status=${p.status} product=${p.productID}',
@@ -195,15 +209,44 @@ class _PremiumPageState extends State<PremiumPage> {
   GooglePlayProductDetails? _buscarOfertaTrial(List<ProductDetails> productos) {
     for (final p in productos) {
       if (p is! GooglePlayProductDetails) continue;
-      final idx = p.subscriptionIndex;
-      final ofertas = p.productDetails.subscriptionOfferDetails;
-      if (idx == null || ofertas == null || idx >= ofertas.length) continue;
-      final tieneFaseGratis = ofertas[idx]
-          .pricingPhases
-          .any((fase) => fase.priceAmountMicros == 0);
-      if (tieneFaseGratis) return p;
+      if (_tieneFaseGratis(p)) return p;
     }
     return null;
+  }
+
+  /// Devuelve el `basePlanId` de la oferta que representa este
+  /// [GooglePlayProductDetails], o `null` si no se puede determinar.
+  String? _basePlanId(GooglePlayProductDetails p) {
+    final idx = p.subscriptionIndex;
+    final ofertas = p.productDetails.subscriptionOfferDetails;
+    if (idx == null || ofertas == null || idx >= ofertas.length) return null;
+    return ofertas[idx].basePlanId;
+  }
+
+  /// `true` si la oferta incluye una fase de precio 0 (prueba gratuita o fase
+  /// introductoria gratis).
+  bool _tieneFaseGratis(GooglePlayProductDetails p) {
+    final idx = p.subscriptionIndex;
+    final ofertas = p.productDetails.subscriptionOfferDetails;
+    if (idx == null || ofertas == null || idx >= ofertas.length) return false;
+    return ofertas[idx]
+        .pricingPhases
+        .any((fase) => fase.priceAmountMicros == 0);
+  }
+
+  /// Elige, entre las ofertas cuyo basePlanId cumple [coincide], la oferta base
+  /// recurrente para mostrar/comprar: se prefiere la que NO tiene fase gratuita
+  /// (el precio "normal" del plan), dejando las ofertas con prueba gratuita para
+  /// el flujo de trial. Devuelve `null` si no hay ninguna coincidencia.
+  GooglePlayProductDetails? _mejorOfertaBase(
+      List<GooglePlayProductDetails> ofertas, bool Function(String) coincide) {
+    final candidatos = ofertas.where((p) {
+      final bp = _basePlanId(p);
+      return bp != null && coincide(bp);
+    }).toList();
+    if (candidatos.isEmpty) return null;
+    return candidatos.firstWhere((p) => !_tieneFaseGratis(p),
+        orElse: () => candidatos.first);
   }
 
   /// Inicia la prueba gratuita a través de Google Play (NO es un regalo local).
@@ -223,6 +266,11 @@ class _PremiumPageState extends State<PremiumPage> {
       ));
       return;
     }
+    // La prueba gratuita está adjunta a un base plan concreto; al terminar el
+    // trial la suscripción se convierte en ese plan. Guardamos ese plan para
+    // que activarDesdePago otorgue la duración coherente.
+    await PremiumService.guardarPlanPendiente(
+        _basePlanId(oferta) == _kBasePlanAnual ? 'anual' : 'mensual');
     setState(() => _loading = true);
     try {
       await InAppPurchase.instance.buyNonConsumable(
@@ -244,10 +292,21 @@ class _PremiumPageState extends State<PremiumPage> {
       ));
       return;
     }
+    // El productID es el mismo para mensual y anual (un único producto con dos
+    // base plans), así que guardamos el plan elegido para que activarDesdePago
+    // otorgue la duración correcta (365 vs 31 días) sin depender del productID.
+    await PremiumService.guardarPlanPendiente(
+        _planAnualSeleccionado ? 'anual' : 'mensual');
     setState(() => _loading = true);
     try {
-      await InAppPurchase.instance
-          .buyNonConsumable(purchaseParam: PurchaseParam(productDetails: producto));
+      // En un producto con varios base plans hay que indicar el offerToken del
+      // base plan concreto; un PurchaseParam genérico no basta.
+      await InAppPurchase.instance.buyNonConsumable(
+        purchaseParam: GooglePlayPurchaseParam(
+          productDetails: producto,
+          offerToken: producto.offerToken,
+        ),
+      );
     } catch (_) {
       if (mounted) setState(() => _loading = false);
     }
