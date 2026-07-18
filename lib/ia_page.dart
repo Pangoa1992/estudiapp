@@ -10,7 +10,8 @@ import 'package:file_picker/file_picker.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:path_provider/path_provider.dart';
-import 'package:easy_audience_network/easy_audience_network.dart';
+import 'package:unity_ads_plugin/unity_ads_plugin.dart';
+import 'services/unity_ads_config.dart';
 import 'models/flashcard_srs_model.dart';
 import 'services/srs_service.dart';
 import 'services/carrera_service.dart';
@@ -38,125 +39,52 @@ class _IAPageState extends State<IAPage> {
   bool _cargandoChat = false;
   String _temaActual = '';
 
-  // ── ADS (Meta Audience Network) + LÍMITE DIARIO ─────────
-  static const _interstitialPlacementId =
-      '4499034070413225_4499034523746513';
-
-  InterstitialAd? _interstitialAd;
+  // ── ADS (Unity Ads) + LÍMITE DIARIO ─────────
+  // Unity usa un modelo estático load/show por placement: se precarga con
+  // UnityAds.load() y se muestra con UnityAds.showVideoAd(); tras cada show se
+  // vuelve a cargar para tener el siguiente listo.
   bool _interstitialLoaded = false;
   int _contadorUsos = 0;
-  RewardedAd? _rewardedAd;
   bool _rewardedLoaded = false;
-  RewardedAd? _rewardedInterstitialAd;
-  bool _rewardedInterstitialLoaded = false;
   int _busquedasRestantes = IaLimiteService.limiteGratuito;
 
   void _cargarIntersticial() {
-    final ad = InterstitialAd(_interstitialPlacementId);
-    ad.listener = InterstitialAdListener(
-      onLoaded: () => _interstitialLoaded = true,
-      onDismissed: () {
-        _interstitialLoaded = false;
-        ad.destroy();
-        _cargarIntersticial(); // precarga el siguiente
-      },
-      onError: (code, message) {
-        _interstitialLoaded = false;
-        ad.destroy();
-      },
+    UnityAds.load(
+      placementId: UnityAdsConfig.interstitial,
+      onComplete: (_) => _interstitialLoaded = true,
+      onFailed: (_, error, message) => _interstitialLoaded = false,
     );
-    _interstitialAd = ad;
-    ad.load();
   }
 
   void _mostrarIntersticial() {
     _contadorUsos++;
-    if (_contadorUsos % 3 == 0 && _interstitialLoaded && _interstitialAd != null) {
-      _interstitialAd!.show();
+    if (_contadorUsos % 3 == 0 && _interstitialLoaded) {
       _interstitialLoaded = false;
-      // onDismissed destruye la instancia y precarga la siguiente.
+      UnityAds.showVideoAd(
+        placementId: UnityAdsConfig.interstitial,
+        onComplete: (_) => _cargarIntersticial(), // precarga el siguiente
+        onSkipped: (_) => _cargarIntersticial(),
+        onFailed: (_, error, message) => _cargarIntersticial(),
+      );
     }
   }
-  // ── REWARDED AD (video recompensado de Meta) ──────────
-  // Mismo bloque sirve para el +3 de búsquedas y el +2 de simulacro; el monto
-  // de la recompensa lo controla la app, no el bloque de anuncio.
-  static const _rewardedPlacementId = '4499034070413225_4499140687069230';
 
+  // ── REWARDED AD (video recompensado de Unity) ──────────
+  // Un único placement sirve para el +3 de búsquedas y el +2 de simulacro; el
+  // monto de la recompensa lo controla la app, no el anuncio.
   void _cargarRewardedAd() {
-    final ad = RewardedAd(_rewardedPlacementId);
-    ad.listener = RewardedAdListener(
-      onLoaded: () => _rewardedLoaded = true,
-      onVideoComplete: () async {
-        await IaLimiteService.agregarBonus();
-        await _actualizarRestantes();
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(context.l10n.iaGot3),
-              backgroundColor: const Color(0xFF5DE0C5),
-            ),
-          );
-        }
-      },
-      onVideoClosed: () {
-        _rewardedLoaded = false;
-        ad.destroy();
-        _cargarRewardedAd(); // precarga el siguiente
-      },
-      onError: (code, message) {
-        _rewardedLoaded = false;
-        ad.destroy();
-      },
+    UnityAds.load(
+      placementId: UnityAdsConfig.rewarded,
+      onComplete: (_) => _rewardedLoaded = true,
+      onFailed: (_, error, message) => _rewardedLoaded = false,
     );
-    _rewardedAd = ad;
-    ad.load();
   }
 
-  // ── REWARDED — simulacro (+2 búsquedas) ──────────────────────────────────
-  void _cargarRewardedInterstitialAd() {
-    final ad = RewardedAd(_rewardedPlacementId);
-    ad.listener = RewardedAdListener(
-      onLoaded: () => _rewardedInterstitialLoaded = true,
-      onVideoComplete: () async {
-        await IaLimiteService.agregarBonus(cantidad: 2);
-        await _actualizarRestantes();
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(context.l10n.iaGot2Bonus),
-              backgroundColor: const Color(0xFF5DE0C5),
-            ),
-          );
-        }
-      },
-      onVideoClosed: () {
-        _rewardedInterstitialLoaded = false;
-        ad.destroy();
-        _cargarRewardedInterstitialAd();
-      },
-      onError: (code, message) {
-        _rewardedInterstitialLoaded = false;
-        ad.destroy();
-      },
-    );
-    _rewardedInterstitialAd = ad;
-    ad.load();
-  }
-
-  Future<void> _mostrarRewardedInterstitial() async {
-    if (!_rewardedInterstitialLoaded || _rewardedInterstitialAd == null) return;
-    await _rewardedInterstitialAd!.show();
-    _rewardedInterstitialLoaded = false;
-    // La recompensa se otorga en onVideoComplete; onVideoClosed recarga.
-  }
-
-  Future<void> _actualizarRestantes() async {
-    final r = await IaLimiteService.restantes();
-    if (mounted) setState(() => _busquedasRestantes = r);
-  }
-
-  Future<void> _mostrarRewardedAd() async {
-    if (!_rewardedLoaded || _rewardedAd == null) {
+  /// Muestra el video recompensado y, si el usuario lo ve completo, otorga
+  /// [cantidad] búsquedas extra y muestra [mensaje]. Si lo salta o falla, no
+  /// se otorga recompensa. En cualquier caso se precarga el siguiente.
+  Future<void> _mostrarRewardedConRecompensa(int cantidad, String mensaje) async {
+    if (!_rewardedLoaded) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text(context.l10n.iaAdNotAvail)),
@@ -164,10 +92,43 @@ class _IAPageState extends State<IAPage> {
       }
       return;
     }
-    await _rewardedAd!.show();
     _rewardedLoaded = false;
-    // La recompensa (+3) se otorga en onVideoComplete; onVideoClosed recarga.
+    UnityAds.showVideoAd(
+      placementId: UnityAdsConfig.rewarded,
+      onComplete: (_) async {
+        await IaLimiteService.agregarBonus(cantidad: cantidad);
+        await _actualizarRestantes();
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(mensaje),
+              backgroundColor: const Color(0xFF5DE0C5),
+            ),
+          );
+        }
+        _cargarRewardedAd(); // precarga el siguiente
+      },
+      onSkipped: (_) => _cargarRewardedAd(), // salteado → sin recompensa
+      onFailed: (_, error, message) => _cargarRewardedAd(),
+    );
   }
+
+  // Video recompensado del simulacro (+2 búsquedas). Se muestra sin bloquear si
+  // no está cargado (a diferencia de la pasarela, aquí es un extra opcional).
+  Future<void> _mostrarRewardedInterstitial() async {
+    if (!_rewardedLoaded) return;
+    await _mostrarRewardedConRecompensa(2, context.l10n.iaGot2Bonus);
+  }
+
+  Future<void> _actualizarRestantes() async {
+    final r = await IaLimiteService.restantes();
+    if (mounted) setState(() => _busquedasRestantes = r);
+  }
+
+  // Video recompensado de la pasarela de límite (+3 búsquedas).
+  Future<void> _mostrarRewardedAd() =>
+      _mostrarRewardedConRecompensa(
+          IaLimiteService.bonusPorAnuncio, context.l10n.iaGot3);
 
   Future<void> _mostrarPasarela() async {
     if (!mounted) return;
@@ -289,7 +250,6 @@ class _IAPageState extends State<IAPage> {
     _cargarHistorialChat();
     _cargarIntersticial();
     _cargarRewardedAd();
-    _cargarRewardedInterstitialAd();
     _cargarCarrera();
     _actualizarRestantes();
   }
@@ -309,9 +269,8 @@ class _IAPageState extends State<IAPage> {
 
   @override
   void dispose() {
-    _interstitialAd?.destroy();
-    _rewardedAd?.destroy();
-    _rewardedInterstitialAd?.destroy();
+    // Unity Ads usa un modelo estático por placement; no hay instancias que
+    // liberar (los widgets de banner sí se liberan solos al desmontarse).
     _concepto1Controller.dispose();
     _concepto2Controller.dispose();
     _nemotecniaController.dispose();

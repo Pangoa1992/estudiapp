@@ -49,7 +49,8 @@ android {
     buildTypes {
         release {
             signingConfig = signingConfigs.release
-            // Reglas ProGuard/R8 necesarias para el SDK de Meta Audience Network.
+            // Reglas ProGuard/R8. Unity Ads trae sus propias consumer-rules, así
+            // que proguard-rules.pro solo mantiene reglas específicas de la app.
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
         }
     }

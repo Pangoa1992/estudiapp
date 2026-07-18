@@ -1,10 +1,7 @@
-# Meta Audience Network (Facebook Ads SDK)
-# El SDK referencia anotaciones internas de Facebook que no existen en tiempo
-# de compilación; R8 pide suprimir estas advertencias (missing_rules.txt).
--dontwarn com.facebook.infer.annotation.Nullsafe
--dontwarn com.facebook.infer.annotation.Nullsafe$Mode
-
-# Conserva las clases públicas del SDK de anuncios de Meta (se usan por
-# reflexión desde el código nativo del plugin easy_audience_network).
--keep class com.facebook.ads.** { *; }
--keep interface com.facebook.ads.** { *; }
+# Unity Ads incluye sus propias reglas ProGuard (consumer-rules.pro) que R8
+# fusiona automáticamente, así que no hace falta configuración extra para los
+# anuncios. Las reglas de Meta Audience Network se eliminaron al migrar a
+# Unity Ads (v1.9.7, jul 2026).
+#
+# Añade aquí reglas específicas de la app si en el futuro alguna dependencia
+# lo requiere.

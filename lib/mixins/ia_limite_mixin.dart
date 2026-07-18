@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:easy_audience_network/easy_audience_network.dart';
+import 'package:unity_ads_plugin/unity_ads_plugin.dart';
 import '../services/ia_limite_service.dart';
+import '../services/unity_ads_config.dart';
 import '../premium_page.dart';
 
 /// Mixin reutilizable que añade la pasarela de límite diario de búsquedas IA.
@@ -27,18 +28,17 @@ import '../premium_page.dart';
 /// }
 /// ```
 mixin IaLimiteMixin<T extends StatefulWidget> on State<T> {
-  RewardedAd? _iaRewardedAd;
   bool _iaRewardedLoaded = false;
 
-  // Bloque de VIDEO RECOMPENSADO de Meta (App ID 4499034070413225).
-  // Debe coincidir con el usado en ia_page.dart (_rewardedPlacementId).
-  static const _rewardedPlacementId = '4499034070413225_4499140687069230';
+  // Video recompensado de Unity Ads. Usa el mismo placement que ia_page.dart
+  // (UnityAdsConfig.rewarded).
 
   // ── Ciclo de vida ─────────────────────────────────────────────────────────
 
   void initIaLimite() => _cargarIaRewardedAd();
 
-  void disposeIaLimite() => _iaRewardedAd?.destroy();
+  // Unity usa un modelo estático por placement; no hay instancia que liberar.
+  void disposeIaLimite() {}
 
   // ── API pública ───────────────────────────────────────────────────────────
 
@@ -56,10 +56,27 @@ mixin IaLimiteMixin<T extends StatefulWidget> on State<T> {
   // ── Helpers internos ──────────────────────────────────────────────────────
 
   void _cargarIaRewardedAd() {
-    final ad = RewardedAd(_rewardedPlacementId);
-    ad.listener = RewardedAdListener(
-      onLoaded: () => _iaRewardedLoaded = true,
-      onVideoComplete: () async {
+    UnityAds.load(
+      placementId: UnityAdsConfig.rewarded,
+      onComplete: (_) => _iaRewardedLoaded = true,
+      onFailed: (_, error, message) => _iaRewardedLoaded = false,
+    );
+  }
+
+  Future<void> _mostrarIaRewardedAd() async {
+    if (!_iaRewardedLoaded) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+              content: Text('Anuncio no disponible. Intenta en un momento.')),
+        );
+      }
+      return;
+    }
+    _iaRewardedLoaded = false;
+    UnityAds.showVideoAd(
+      placementId: UnityAdsConfig.rewarded,
+      onComplete: (_) async {
         await IaLimiteService.agregarBonus();
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -69,34 +86,11 @@ mixin IaLimiteMixin<T extends StatefulWidget> on State<T> {
             ),
           );
         }
-      },
-      onVideoClosed: () {
-        _iaRewardedLoaded = false;
-        ad.destroy();
         _cargarIaRewardedAd(); // precarga el siguiente
       },
-      onError: (code, message) {
-        _iaRewardedLoaded = false;
-        ad.destroy();
-      },
+      onSkipped: (_) => _cargarIaRewardedAd(), // salteado → sin recompensa
+      onFailed: (_, error, message) => _cargarIaRewardedAd(),
     );
-    _iaRewardedAd = ad;
-    ad.load();
-  }
-
-  Future<void> _mostrarIaRewardedAd() async {
-    if (!_iaRewardedLoaded || _iaRewardedAd == null) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-              content: Text('Anuncio no disponible. Intenta en un momento.')),
-        );
-      }
-      return;
-    }
-    await _iaRewardedAd!.show();
-    _iaRewardedLoaded = false;
-    // La recompensa (+3) se otorga en onVideoComplete; onVideoClosed recarga.
   }
 
   Future<void> _mostrarIaPasarela() async {

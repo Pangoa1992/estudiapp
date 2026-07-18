@@ -6,7 +6,8 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:easy_audience_network/easy_audience_network.dart';
+import 'package:unity_ads_plugin/unity_ads_plugin.dart';
+import 'services/unity_ads_config.dart';
 import 'package:in_app_purchase/in_app_purchase.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:async';
@@ -102,9 +103,17 @@ void main() async {
     CacheService.inicializar(),
     IdiomaService.cargar(),
   ]);
-  // Meta Audience Network: testMode usa anuncios de prueba en debug y
-  // anuncios reales en release. App ID: 4499034070413225.
-  unawaited(EasyAudienceNetwork.init(testMode: kDebugMode));
+  // Unity Ads: testMode usa anuncios de prueba en debug y anuncios reales en
+  // release. Game ID Android: 800104533. La inicialización es asíncrona vía
+  // callbacks (no devuelve Future); los anuncios se cargan una vez que
+  // onComplete confirma que el SDK está listo.
+  UnityAds.init(
+    gameId: UnityAdsConfig.gameId,
+    testMode: kDebugMode,
+    onComplete: () => debugPrint('[UnityAds] Inicialización completa'),
+    onFailed: (error, message) =>
+        debugPrint('[UnityAds] Inicialización falló: $error $message'),
+  );
   runApp(const MyApp());
 }
 
@@ -230,18 +239,14 @@ class HomePage extends StatefulWidget {
 class _HomePageState extends State<HomePage> {
   final user = FirebaseAuth.instance.currentUser;
   final _db = FirebaseFirestore.instance;
-  static const _bannerPlacementId = '4499034070413225_4499034527079846';
   bool _bannerAdFailed = false;
   // El widget de banner se crea una sola vez (late final) para que no se
-  // recargue en cada rebuild de la pantalla. Meta lo carga automáticamente.
-  late final Widget _bannerAd = BannerAd(
-    placementId: _bannerPlacementId,
-    bannerSize: BannerSize.STANDARD,
-    listener: BannerAdListener(
-      onError: (code, message) {
-        if (mounted) setState(() => _bannerAdFailed = true);
-      },
-    ),
+  // recargue en cada rebuild de la pantalla. Unity lo carga automáticamente.
+  late final Widget _bannerAd = UnityBannerAd(
+    placementId: UnityAdsConfig.banner,
+    onFailed: (placementId, error, message) {
+      if (mounted) setState(() => _bannerAdFailed = true);
+    },
   );
   int _rachaWidget = 0;
   List<String> _habitosWidget = [];
@@ -646,7 +651,7 @@ class _HomePageState extends State<HomePage> {
                 style: TextStyle(color: Colors.white24, fontSize: 11),
               ),
             )
-          // BannerSize.STANDARD mide 50px de alto.
+          // El banner estándar de Unity mide 320x50; 50px de alto es suficiente.
           : SizedBox(height: 50, child: _bannerAd),
       body: Container(
         decoration: const BoxDecoration(
