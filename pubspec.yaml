@@ -2,7 +2,7 @@ name: app_universitaria
 description: "EstudiApp — Organizador académico con IA para universitarios."
 publish_to: 'none'
 
-version: 1.9.7+95
+version: 1.9.7+96
 
 environment:
   sdk: ^3.6.2
@@ -33,10 +33,12 @@ dependencies:
   home_widget: ^0.7.0
   flutter_secure_storage: ^9.2.2
   flutter_launcher_icons: ^0.14.4
-  in_app_purchase: ^3.2.0
+  in_app_purchase: ^3.3.0
   # Necesario para seleccionar la oferta de prueba gratuita de Google Play
   # (GooglePlayPurchaseParam / offerToken) en premium_page.dart.
-  in_app_purchase_android: ^0.4.0
+  # 0.5.0 usa Google Play Billing Library 8.0.0 (requisito Play Store 2026).
+  # Fijada exacta: 0.5.0+1 en adelante exigen Dart SDK 3.12 (tenemos 3.11.5).
+  in_app_purchase_android: 0.5.0
   firebase_messaging: ^16.1.2
   firebase_crashlytics: ^5.0.8
   in_app_review: ^2.0.9
