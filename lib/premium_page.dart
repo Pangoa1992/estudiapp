@@ -147,13 +147,18 @@ class _PremiumPageState extends State<PremiumPage> {
 
       if (p.status == PurchaseStatus.purchased ||
           p.status == PurchaseStatus.restored) {
+        var activado = false;
         try {
-          await PremiumService.activarDesdePago(
+          activado = await PremiumService.activarDesdePago(
             planId: p.productID,
             purchaseToken: p.verificationData.serverVerificationData,
+            origen: 'premium_page',
           );
           FirebaseCrashlytics.instance.log(
-            '[Premium] activarDesdePago OK: ${p.productID}',
+            activado
+                ? '[Premium] activarDesdePago OK: ${p.productID}'
+                : '[Premium] activarDesdePago RECHAZADA por token vacío: '
+                    '${p.productID}',
           );
         } catch (e, st) {
           FirebaseCrashlytics.instance.recordError(
@@ -165,10 +170,15 @@ class _PremiumPageState extends State<PremiumPage> {
         }
         await _load();
         if (mounted) {
+          // Sin token no se activó nada: no anunciar éxito o el usuario creería
+          // tener Premium mientras `isPremium` sigue en false.
           ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-            content: Text(context.l10n.premiumSuccess),
-            backgroundColor: const Color(0xFF7C6AF7),
-            duration: const Duration(seconds: 3),
+            content: Text(activado
+                ? context.l10n.premiumSuccess
+                : context.l10n.premiumVerifyError),
+            backgroundColor:
+                activado ? const Color(0xFF7C6AF7) : const Color(0xFFF7584A),
+            duration: Duration(seconds: activado ? 3 : 7),
           ));
         }
       } else if (p.status == PurchaseStatus.pending) {

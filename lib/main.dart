@@ -302,12 +302,16 @@ class _HomePageState extends State<HomePage> {
       if (p.status == PurchaseStatus.purchased ||
           p.status == PurchaseStatus.restored) {
         try {
-          await PremiumService.activarDesdePago(
+          final activado = await PremiumService.activarDesdePago(
             planId: p.productID,
             purchaseToken: p.verificationData.serverVerificationData,
+            origen: 'listener_global',
           );
           FirebaseCrashlytics.instance.log(
-            '[Premium] activarDesdePago OK (global): ${p.productID}',
+            activado
+                ? '[Premium] activarDesdePago OK (global): ${p.productID}'
+                : '[Premium] activarDesdePago RECHAZADA por token vacío '
+                    '(global): ${p.productID}',
           );
         } catch (e, st) {
           FirebaseCrashlytics.instance.recordError(

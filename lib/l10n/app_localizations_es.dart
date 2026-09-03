@@ -457,6 +457,10 @@ class AppLocalizationsEs extends AppLocalizations {
   String get paymentPending => 'Pago pendiente de confirmación bancaria...';
 
   @override
+  String get premiumVerifyError =>
+      'No pudimos verificar tu compra con Google Play. Si se te cobró, cierra y vuelve a abrir la app para restaurarla, o escríbenos.';
+
+  @override
   String paymentError(String message) {
     return 'Error en el pago: $message';
   }

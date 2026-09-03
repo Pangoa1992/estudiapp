@@ -152,6 +152,7 @@
   "securePayment": "Secure payment via Google Play · Cancel anytime",
   "premiumSuccess": "Premium activated successfully!",
   "paymentPending": "Payment pending bank confirmation...",
+  "premiumVerifyError": "We couldn't verify your purchase with Google Play. If you were charged, close and reopen the app to restore it, or contact us.",
   "paymentError": "Payment error: {message}",
   "trialSuccess": "7 days Premium activated! Enjoy without limits 🎉",
   "trialUsed": "You've already used the free trial period.",

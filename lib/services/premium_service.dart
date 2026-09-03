@@ -1,5 +1,6 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class PremiumService {
@@ -98,12 +99,49 @@ class PremiumService {
     return 'mensual';
   }
 
-  static Future<void> activarDesdePago({
+  /// Activa Premium en Firestore a partir de una compra de Google Play.
+  ///
+  /// Devuelve `true` si la activación se escribió. Devuelve `false` —sin tocar
+  /// Firestore— cuando [purchaseToken] llega nulo o vacío.
+  ///
+  /// El token (`serverVerificationData` del purchaseStream) es el purchaseToken
+  /// de Google Play Billing y es la ÚNICA prueba de que existe una suscripción
+  /// real detrás. Si viene vacío no hay nada que verificar contra la Play
+  /// Developer API, así que escribir `isPremium: true` regalaría la suscripción.
+  /// Bug detectado el 02-sep-2026: un perfil quedó Premium (`planPremium:
+  /// 'mensual'`) con `purchaseToken: ''`, y el panel admin lo contó como
+  /// S/. 15 de ingreso. [origen] identifica el call site en los logs.
+  static Future<bool> activarDesdePago({
     required String planId,
     String? purchaseToken,
+    String origen = 'desconocido',
   }) async {
     final user = FirebaseAuth.instance.currentUser;
-    if (user == null) return;
+    if (user == null) return false;
+
+    final token = purchaseToken?.trim() ?? '';
+    if (token.isEmpty) {
+      // No-fatal a Crashlytics: hay que poder verlo en el dashboard sin
+      // depender de que el usuario reporte que pagó y no le activó.
+      FirebaseCrashlytics.instance.log(
+        '[Premium] RECHAZADA activación sin purchaseToken '
+        '(origen=$origen, planId=$planId, uid=${user.uid})',
+      );
+      await FirebaseCrashlytics.instance.setCustomKey(
+          'premium_token_vacio_origen', origen);
+      await FirebaseCrashlytics.instance.recordError(
+        Exception(
+          'purchaseToken vacío: Premium NO activado '
+          '(origen=$origen, planId=$planId, uid=${user.uid}, '
+          'tokenEraNulo=${purchaseToken == null})',
+        ),
+        StackTrace.current,
+        reason: 'serverVerificationData vacío en purchaseStream',
+        fatal: false,
+      );
+      return false;
+    }
+
     // Plan anual = 365 días; mensual = 31 días.
     final plan = await _resolverPlan(planId);
     final dias = plan == 'anual' ? 365 : 31;
@@ -115,8 +153,9 @@ class PremiumService {
       // Etiqueta limpia ('anual' | 'mensual') en vez del productID crudo: la usa
       // la Cloud Function onPremiumActivado para el texto de la notificación.
       'planPremium': plan,
-      'purchaseToken': purchaseToken,
+      'purchaseToken': token,
     }, SetOptions(merge: true));
+    return true;
   }
 
   static Future<void> cancelar() async {

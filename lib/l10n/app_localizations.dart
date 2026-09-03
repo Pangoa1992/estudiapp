@@ -944,6 +944,12 @@ abstract class AppLocalizations {
   /// **'Pago pendiente de confirmación bancaria...'**
   String get paymentPending;
 
+  /// No description provided for @premiumVerifyError.
+  ///
+  /// In es, this message translates to:
+  /// **'No pudimos verificar tu compra con Google Play. Si se te cobró, cierra y vuelve a abrir la app para restaurarla, o escríbenos.'**
+  String get premiumVerifyError;
+
   /// No description provided for @paymentError.
   ///
   /// In es, this message translates to:
