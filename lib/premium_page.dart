@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'package:in_app_purchase/in_app_purchase.dart';
 import 'package:in_app_purchase_android/in_app_purchase_android.dart';
+import 'package:in_app_purchase_android/billing_client_wrappers.dart';
 import 'services/premium_service.dart';
 import 'l10n_helper.dart';
 
@@ -23,6 +24,19 @@ import 'l10n_helper.dart';
 // el plan elegido justo antes de comprar (ver PremiumService.guardarPlanPendiente).
 const _kProductId     = 'estudiapp_premium_mensual';
 const _kBasePlanAnual = 'anual';
+
+// ID de la oferta con prueba gratuita creada en Play Console
+// (Monetizar > Suscripciones > estudiapp_premium_mensual > Ofertas). Google la
+// devuelve como un [GooglePlayProductDetails] más, con este `offerId` y una fase
+// de precio 0. Si se renombra la oferta en Play Console hay que actualizar esta
+// constante; mientras tanto, `_buscarOfertaTrial` cae de vuelta a cualquier
+// oferta con fase gratuita para no perder la prueba por un simple rename.
+const _kOfertaTrialId = 'trial-7-dias';
+
+// Días de prueba que se asumen si Play no devuelve un `billingPeriod` legible
+// en la fase gratuita. Solo es un rótulo/duración de respaldo: lo normal es que
+// los días se lean de la propia oferta (ver [_diasDeTrial]).
+const _kDiasTrialFallback = 7;
 
 class PremiumPage extends StatefulWidget {
   const PremiumPage({super.key});
@@ -97,9 +111,14 @@ class _PremiumPageState extends State<PremiumPage> {
       // Diagnóstico: deja constancia en Crashlytics de los base plans que
       // devolvió Play. Permite verificar contra Play Console sin acceso directo
       // al dispositivo (p. ej. confirmar que existe el base plan 'anual').
+      // Se incluyen los offerIds y cuáles traen fase gratuita: es lo único que
+      // permite distinguir "la oferta trial-7-dias no está activa en Play
+      // Console" de "el usuario ya no es elegible para la prueba".
       FirebaseCrashlytics.instance.log(
         '[Premium] queryProductDetails '
         'basePlans=${ofertas.map((p) => _basePlanId(p) ?? '?').toList()} '
+        'offerIds=${ofertas.map((p) => _offerId(p) ?? '-').toList()} '
+        'gratuitas=${ofertas.where(_tieneFaseGratis).map((p) => _offerId(p) ?? '-').toList()} '
         'notFound=${res.notFoundIDs}',
       );
       if (res.notFoundIDs.isNotEmpty) {
@@ -211,37 +230,74 @@ class _PremiumPageState extends State<PremiumPage> {
     if (mounted) setState(() => _loading = false);
   }
 
-  /// Busca entre las ofertas devueltas por Google Play una que tenga una fase
-  /// de precio 0 (prueba gratuita). Cada [GooglePlayProductDetails] representa
-  /// una única oferta de un plan base. Devuelve `null` si ninguna tiene prueba
-  /// gratuita (p. ej. no está configurada en Play Console o el usuario ya no es
-  /// elegible por haberla usado antes).
+  /// Busca la oferta con prueba gratuita entre las que devolvió Google Play.
+  ///
+  /// Se prefiere la oferta cuyo `offerId` es [_kOfertaTrialId] (la configurada
+  /// en Play Console). Si no aparece con ese id —p. ej. porque se renombró— se
+  /// usa cualquier otra oferta con fase de precio 0 antes que renunciar a la
+  /// prueba. Devuelve `null` si ninguna es gratuita, que es lo que ocurre cuando
+  /// la oferta no está activa en Play Console o el usuario ya no es elegible por
+  /// haberla usado antes; en ese caso el botón de prueba no se muestra.
   GooglePlayProductDetails? _buscarOfertaTrial(List<ProductDetails> productos) {
-    for (final p in productos) {
-      if (p is! GooglePlayProductDetails) continue;
-      if (_tieneFaseGratis(p)) return p;
-    }
-    return null;
+    final gratuitas = productos
+        .whereType<GooglePlayProductDetails>()
+        .where(_tieneFaseGratis)
+        .toList();
+    if (gratuitas.isEmpty) return null;
+    return gratuitas.firstWhere((p) => _offerId(p) == _kOfertaTrialId,
+        orElse: () => gratuitas.first);
   }
 
-  /// Devuelve el `basePlanId` de la oferta que representa este
-  /// [GooglePlayProductDetails], o `null` si no se puede determinar.
-  String? _basePlanId(GooglePlayProductDetails p) {
+  /// Devuelve la oferta concreta que representa este [GooglePlayProductDetails].
+  ///
+  /// Google expande un producto de suscripción en un `ProductDetails` por cada
+  /// base plan/oferta; `subscriptionIndex` apunta a la que corresponde dentro de
+  /// `subscriptionOfferDetails`. Devuelve `null` si el índice no es resoluble.
+  SubscriptionOfferDetailsWrapper? _ofertaDe(GooglePlayProductDetails p) {
     final idx = p.subscriptionIndex;
     final ofertas = p.productDetails.subscriptionOfferDetails;
-    if (idx == null || ofertas == null || idx >= ofertas.length) return null;
-    return ofertas[idx].basePlanId;
+    if (idx == null || ofertas == null || idx < 0 || idx >= ofertas.length) {
+      return null;
+    }
+    return ofertas[idx];
   }
+
+  /// Devuelve el `basePlanId` de la oferta, o `null` si no se puede determinar.
+  String? _basePlanId(GooglePlayProductDetails p) => _ofertaDe(p)?.basePlanId;
+
+  /// Devuelve el `offerId` de la oferta. Google lo deja en `null` para los base
+  /// plans "pelados" (sin oferta asociada), así que solo las ofertas —prueba
+  /// gratuita incluida— traen valor aquí.
+  String? _offerId(GooglePlayProductDetails p) => _ofertaDe(p)?.offerId;
 
   /// `true` si la oferta incluye una fase de precio 0 (prueba gratuita o fase
   /// introductoria gratis).
-  bool _tieneFaseGratis(GooglePlayProductDetails p) {
-    final idx = p.subscriptionIndex;
-    final ofertas = p.productDetails.subscriptionOfferDetails;
-    if (idx == null || ofertas == null || idx >= ofertas.length) return false;
-    return ofertas[idx]
-        .pricingPhases
-        .any((fase) => fase.priceAmountMicros == 0);
+  bool _tieneFaseGratis(GooglePlayProductDetails p) =>
+      _ofertaDe(p)?.pricingPhases.any((fase) => fase.priceAmountMicros == 0) ??
+      false;
+
+  /// Días que dura la parte gratuita de la oferta, según Play Console.
+  ///
+  /// Suma la duración de todas las fases de precio 0 y cae a
+  /// [_kDiasTrialFallback] si Play no devuelve un periodo legible. Se lee de la
+  /// oferta en vez de hardcodear 7 para que el texto del botón y la fecha de
+  /// expiración sigan a la oferta si algún día se cambia su duración.
+  int _diasDeTrial(GooglePlayProductDetails p) {
+    final fases = _ofertaDe(p)?.pricingPhases ?? const [];
+    final dias = fases
+        .where((f) => f.priceAmountMicros == 0)
+        .fold<int>(0, (t, f) => t + _diasPeriodoIso(f.billingPeriod));
+    return dias > 0 ? dias : _kDiasTrialFallback;
+  }
+
+  /// Convierte un periodo ISO 8601 de Google Play ("P1W", "P7D", "P1M") a días.
+  /// Devuelve 0 si el formato no se reconoce.
+  int _diasPeriodoIso(String periodo) {
+    final m = RegExp(r'^P(?:(\d+)Y)?(?:(\d+)M)?(?:(\d+)W)?(?:(\d+)D)?$')
+        .firstMatch(periodo.trim().toUpperCase());
+    if (m == null) return 0;
+    int g(int i) => int.tryParse(m.group(i) ?? '') ?? 0;
+    return g(1) * 365 + g(2) * 30 + g(3) * 7 + g(4);
   }
 
   /// Elige, entre las ofertas cuyo basePlanId cumple [coincide], la oferta base
@@ -277,10 +333,13 @@ class _PremiumPageState extends State<PremiumPage> {
       return;
     }
     // La prueba gratuita está adjunta a un base plan concreto; al terminar el
-    // trial la suscripción se convierte en ese plan. Guardamos ese plan para
-    // que activarDesdePago otorgue la duración coherente.
-    await PremiumService.guardarPlanPendiente(
-        _basePlanId(oferta) == _kBasePlanAnual ? 'anual' : 'mensual');
+    // trial la suscripción se convierte en ese plan. Guardamos ese plan —y los
+    // días de prueba— para que activarDesdePago etiquete el alta como trial y
+    // le ponga la expiración correcta.
+    await PremiumService.iniciarTrialPendiente(
+      dias: _diasDeTrial(oferta),
+      planBase: _basePlanId(oferta) == _kBasePlanAnual ? 'anual' : 'mensual',
+    );
     setState(() => _loading = true);
     try {
       await InAppPurchase.instance.buyNonConsumable(
@@ -307,6 +366,10 @@ class _PremiumPageState extends State<PremiumPage> {
     // otorgue la duración correcta (365 vs 31 días) sin depender del productID.
     await PremiumService.guardarPlanPendiente(
         _planAnualSeleccionado ? 'anual' : 'mensual');
+    // Esta compra SÍ se cobra: si antes se abrió el flujo de prueba y se canceló,
+    // hay que descartarlo o el alta se etiquetaría como trial y expiraría a los
+    // 7 días en vez de al final del periodo pagado.
+    await PremiumService.limpiarTrialPendiente();
     setState(() => _loading = true);
     try {
       // En un producto con varios base plans hay que indicar el offerToken del
@@ -623,6 +686,8 @@ class _PremiumPageState extends State<PremiumPage> {
   }
 
   Widget _botonTrialGratuito(AppLocalizations l10n) {
+    final oferta = _ofertaTrial;
+    final dias = oferta != null ? _diasDeTrial(oferta) : _kDiasTrialFallback;
     return SizedBox(
       width: double.infinity,
       child: ElevatedButton(
@@ -644,7 +709,7 @@ class _PremiumPageState extends State<PremiumPage> {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Text(
-                    l10n.tryFree,
+                    l10n.tryFree(dias),
                     style: const TextStyle(
                         color: Colors.white,
                         fontSize: 16,

@@ -12,6 +12,29 @@ class PremiumService {
   // productID que llega en el purchaseStream no permite distinguir la duración.
   static const _kPlanPendienteKey = 'premium_plan_pendiente';
 
+  // ── Prueba gratuita ─────────────────────────────────────────────────────────
+  // El purchaseStream NO dice si la compra usó la oferta de prueba gratuita: el
+  // productID y el token son idénticos a los de una compra pagada. Estas claves
+  // llevan ese dato desde el momento en que PremiumPage lanza el flujo de compra
+  // hasta que llega el evento de Google Play.
+  static const _kTrialDiasKey    = 'premium_trial_dias';
+  static const _kTrialLanzadoKey = 'premium_trial_lanzado';
+  static const _kTrialHastaKey   = 'premium_trial_hasta';
+
+  /// Ventana durante la cual un trial lanzado sigue considerándose "pendiente".
+  /// Google Play puede tardar (compras en estado `pending`, pagos en efectivo),
+  /// pero pasado este plazo asumimos que el usuario abandonó el flujo de prueba;
+  /// así una compra PAGADA posterior no se etiqueta como trial por error.
+  static const _kTrialPendienteTtl = Duration(hours: 24);
+
+  /// Etiqueta de `planPremium` para un trial en curso.
+  ///
+  /// Es una ETIQUETA, no una duración: los días reales de la prueba los define
+  /// la oferta de Play Console y viajan en `premiumExpiry`. La consumen las
+  /// Cloud Functions `recordarExpiracionTrial` y `desactivarTrialsVencidos`, y
+  /// `onPremiumActivado` para el texto del push al admin.
+  static const planTrial = 'trial_7d';
+
   static Future<bool> isPremium() async {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) return false;
@@ -82,6 +105,101 @@ class PremiumService {
     } catch (_) {/* si prefs falla, activarDesdePago usa el fallback 'mensual' */}
   }
 
+  /// Marca que se acaba de lanzar la compra de la oferta con prueba gratuita.
+  ///
+  /// [dias] son los días de la fase gratuita según Play Console y [planBase] es
+  /// el plan al que la suscripción se convertirá cuando la prueba termine
+  /// ('anual' | 'mensual'), para que la conversión otorgue la duración correcta.
+  static Future<void> iniciarTrialPendiente({
+    required int dias,
+    required String planBase,
+  }) async {
+    await guardarPlanPendiente(planBase);
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setInt(_kTrialDiasKey, dias);
+      await prefs.setString(
+          _kTrialLanzadoKey, DateTime.now().toIso8601String());
+      // Una prueba anterior pudo dejar su fecha de fin: sin limpiarla, el paso 1
+      // de [_trialHasta] la reutilizaría para este trial nuevo.
+      await prefs.remove(_kTrialHastaKey);
+    } catch (_) {/* sin prefs el trial se activará como plan pagado */}
+  }
+
+  /// Descarta el trial pendiente. La llama PremiumPage antes de una compra
+  /// PAGADA: si el usuario abrió el flujo de prueba, lo canceló y acabó
+  /// suscribiéndose, esa compra no debe etiquetarse como trial.
+  static Future<void> limpiarTrialPendiente() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove(_kTrialDiasKey);
+      await prefs.remove(_kTrialLanzadoKey);
+    } catch (_) {/* el TTL de _kTrialPendienteTtl cubre este caso */}
+  }
+
+  /// Fecha de fin del trial en curso, o `null` si esta compra no es un trial.
+  ///
+  /// Se resuelve en tres pasos:
+  ///  1. `_kTrialHastaKey`: el trial ya se activó antes en este dispositivo. Se
+  ///     devuelve tal cual para que `premiumExpiry` quede ESTABLE — los eventos
+  ///     `restored` que llegan en cada arranque no deben empujar la fecha hacia
+  ///     adelante, o la prueba nunca vencería.
+  ///  2. `_kTrialDiasKey`: la compra recién lanzada era el trial → se calcula el
+  ///     fin (ahora + días) y se persiste para el paso 1.
+  ///  3. Firestore: reinstalación a mitad de la prueba, sin claves locales. Sin
+  ///     este paso el `restored` posterior escribiría un plan pagado con 31 días.
+  ///
+  /// Si la prueba ya terminó, limpia las claves y devuelve `null`: ese evento es
+  /// la conversión a suscripción pagada.
+  static Future<DateTime?> _trialHasta(String uid) async {
+    final ahora = DateTime.now();
+    SharedPreferences? prefs;
+    try {
+      prefs = await SharedPreferences.getInstance();
+    } catch (_) {/* sin prefs se intenta el paso 3 */}
+
+    // ── 1. Trial ya activado en este dispositivo ──────────────────────────────
+    final guardada = DateTime.tryParse(prefs?.getString(_kTrialHastaKey) ?? '');
+    if (guardada != null) {
+      if (guardada.isAfter(ahora)) return guardada;
+      await prefs?.remove(_kTrialHastaKey);
+      await prefs?.remove(_kTrialDiasKey);
+      await prefs?.remove(_kTrialLanzadoKey);
+      return null;
+    }
+
+    // ── 2. Trial lanzado hace poco y aún sin activar ──────────────────────────
+    final dias = prefs?.getInt(_kTrialDiasKey) ?? 0;
+    final lanzado =
+        DateTime.tryParse(prefs?.getString(_kTrialLanzadoKey) ?? '');
+    if (dias > 0 &&
+        lanzado != null &&
+        ahora.difference(lanzado) <= _kTrialPendienteTtl) {
+      final hasta = ahora.add(Duration(days: dias));
+      await prefs?.setString(_kTrialHastaKey, hasta.toIso8601String());
+      return hasta;
+    }
+
+    // ── 3. ¿Firestore dice que este perfil tiene un trial vigente? ────────────
+    // Solo se consulta cuando las prefs no son de fiar. Si `_kPlanPendienteKey`
+    // sigue ahí, las prefs sobrevivieron y la ausencia de claves de trial ya es
+    // respuesta suficiente; así los eventos `restored` que llegan en cada
+    // arranque (los de quien ya paga) no cuestan una lectura extra de Firestore.
+    if (prefs?.getString(_kPlanPendienteKey) != null) return null;
+
+    try {
+      final doc = await _db.collection('perfiles').doc(uid).get();
+      final data = doc.data();
+      if (data?['planPremium'] != planTrial) return null;
+      final expiry = (data?['premiumExpiry'] as Timestamp?)?.toDate();
+      if (expiry == null || !expiry.isAfter(ahora)) return null;
+      await prefs?.setString(_kTrialHastaKey, expiry.toIso8601String());
+      return expiry;
+    } catch (_) {
+      return null;
+    }
+  }
+
   /// Resuelve el plan ('anual' | 'mensual') a partir del [planId] recibido de
   /// Google Play. Si el planId ya lo indica (compat. con datos antiguos) se usa;
   /// si es el productID genérico, se usa el plan guardado antes de comprar.
@@ -140,6 +258,29 @@ class PremiumService {
         fatal: false,
       );
       return false;
+    }
+
+    // ── Prueba gratuita de Google Play ────────────────────────────────────────
+    // Un trial no es una compra pagada: se etiqueta [planTrial] y expira cuando
+    // termina la fase gratuita, no a los 31/365 días. Así `desactivarTrialsVencidos`
+    // puede apagar el Premium de quien cancele antes de la conversión (en ese caso
+    // Play nunca manda el evento de cobro y el perfil quedaría Premium para siempre).
+    final trialHasta = await _trialHasta(user.uid);
+    if (trialHasta != null) {
+      FirebaseCrashlytics.instance.log(
+        '[Premium] trial activado hasta ${trialHasta.toIso8601String()} '
+        '(origen=$origen, planId=$planId)',
+      );
+      await _db.collection('perfiles').doc(user.uid).set({
+        'isPremium': true,
+        'premiumExpiry': Timestamp.fromDate(trialHasta),
+        'premiumActivadoEn': Timestamp.now(),
+        'planPremium': planTrial,
+        'purchaseToken': token,
+        // Cierra el botón "probar gratis" en este perfil (ver trialDisponible).
+        'trialUsado': true,
+      }, SetOptions(merge: true));
+      return true;
     }
 
     // Plan anual = 365 días; mensual = 31 días.

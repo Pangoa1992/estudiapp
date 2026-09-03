@@ -181,7 +181,12 @@
   "perYear": "por año",
   "perMonth": "por mes",
   "save45pct": "AHORRAS 45%",
-  "tryFree": "Probar 7 días gratis",
+  "tryFree": "Probar {days} días gratis",
+  "@tryFree": {
+    "placeholders": {
+      "days": { "type": "int" }
+    }
+  },
   "tryFreeSubtitle": "Requiere método de pago · Renueva automáticamente",
   "trialNeedsPaymentMethod": "Necesitas un método de pago en Google Play para activar la prueba gratuita. Google no te cobrará durante los 7 días de prueba.",
   "subscribeBtn": "Suscribirse — {price}/{period}",

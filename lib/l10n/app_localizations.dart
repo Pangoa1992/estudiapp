@@ -893,8 +893,8 @@ abstract class AppLocalizations {
   /// No description provided for @tryFree.
   ///
   /// In es, this message translates to:
-  /// **'Probar 7 días gratis'**
-  String get tryFree;
+  /// **'Probar {days} días gratis'**
+  String tryFree(int days);
 
   /// No description provided for @tryFreeSubtitle.
   ///

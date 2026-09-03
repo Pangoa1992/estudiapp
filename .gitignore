@@ -55,3 +55,6 @@ Thumbs.db
 
 # Kotlin compiler error logs (build artifacts)
 android/.kotlin/
+
+# Cache local de firebase deploy (hosting)
+.firebase/

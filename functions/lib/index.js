@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.recordarRachaEstudio = exports.notificarLogro = exports.recordarExpiracionTrial = exports.onReferidoUsado = exports.onPremiumActivado = exports.llamarIA = void 0;
+exports.recordarRachaEstudio = exports.notificarLogro = exports.desactivarTrialsVencidos = exports.recordarExpiracionTrial = exports.onReferidoUsado = exports.onPremiumActivado = exports.llamarIA = void 0;
 const https_1 = require("firebase-functions/v2/https");
 const firestore_1 = require("firebase-functions/v2/firestore");
 const scheduler_1 = require("firebase-functions/v2/scheduler");
@@ -11,6 +11,15 @@ const messaging_1 = require("firebase-admin/messaging");
 (0, app_1.initializeApp)();
 const db = (0, firestore_2.getFirestore)();
 const LIMITE_GRATUITO = 5;
+/**
+ * Etiqueta de `planPremium` que escribe PremiumService.activarDesdePago cuando
+ * el alta viene de la oferta con prueba gratuita de Play Console.
+ *
+ * Es una ETIQUETA, no una duración: los días reales de la prueba los define la
+ * oferta y viajan en `premiumExpiry`. Debe coincidir con
+ * `PremiumService.planTrial` (lib/services/premium_service.dart).
+ */
+const PLAN_TRIAL = "trial_7d";
 // ── Región más cercana a Perú ─────────────────────────────────────────────────
 (0, v2_1.setGlobalOptions)({ region: "us-central1" });
 // ── Helpers de fecha Lima (UTC-5, Perú no usa horario de verano) ───────────────
@@ -226,7 +235,7 @@ exports.onPremiumActivado = (0, firestore_1.onDocumentWritten)({ document: "perf
     }
     const nombre = after?.nombre ?? "Un usuario";
     const plan = after?.planPremium ?? "desconocido";
-    const esTrial = plan === "trial_7d";
+    const esTrial = plan === PLAN_TRIAL;
     try {
         await (0, messaging_1.getMessaging)().send({
             token: adminToken,
@@ -318,7 +327,7 @@ exports.recordarExpiracionTrial = (0, scheduler_1.onSchedule)({
     // Solo perfiles con trial activo (isPremium=true, plan=trial_7d)
     const snap = await db.collection("perfiles")
         .where("isPremium", "==", true)
-        .where("planPremium", "==", "trial_7d")
+        .where("planPremium", "==", PLAN_TRIAL)
         .get();
     if (snap.empty) {
         console.info("[recordarExpiracionTrial] Sin trials activos hoy.");
@@ -377,6 +386,85 @@ exports.recordarExpiracionTrial = (0, scheduler_1.onSchedule)({
         }
     }
     console.info(`[recordarExpiracionTrial] Resumen: ${enviados} push(es) enviados de ${snap.size} trial(s) revisados.`);
+});
+// ── Cloud Function: Desactivar trials vencidos (cron diario 3 AM Lima) ───────
+/**
+ * Se ejecuta todos los días a las 3:00 AM (hora Lima, UTC-5), antes de
+ * `recordarExpiracionTrial` (9 AM), y apaga `isPremium` en los perfiles cuyo
+ * plan es [PLAN_TRIAL] y cuyo `premiumExpiry` ya pasó.
+ *
+ * Hace falta porque nadie más apaga esos perfiles: si el usuario cancela la
+ * prueba antes de que Google Play la convierta en suscripción pagada, Play no
+ * manda ningún evento de cobro, así que el `purchaseStream` de la app nunca
+ * vuelve a tocar el documento y `isPremium` se quedaría en `true` para siempre.
+ * El cliente ya no le daría beneficios (`PremiumService._evaluar` compara contra
+ * `premiumExpiry`), pero el dato sucio sí afecta a lo que consulta el servidor:
+ * el panel admin cuenta esos perfiles como suscriptores y `verificarLimiteYConsumir`
+ * los ve con `isPremium === true`.
+ *
+ * Idempotente: al escribir `isPremium: false` el perfil deja de entrar en la
+ * consulta, así que una segunda ejecución no lo vuelve a procesar.
+ */
+exports.desactivarTrialsVencidos = (0, scheduler_1.onSchedule)({
+    schedule: "0 3 * * *", // 3:00 AM todos los días
+    timeZone: "America/Lima", // UTC-5, zona de Perú
+    region: "us-central1",
+}, async () => {
+    const ahora = new Date();
+    // Solo filtros de igualdad: se resuelven con los índices automáticos de
+    // Firestore. Añadir el rango sobre premiumExpiry exigiría un índice
+    // compuesto, y los trials activos son pocos, así que la fecha se compara
+    // aquí (mismo criterio que `recordarExpiracionTrial`).
+    const snap = await db.collection("perfiles")
+        .where("isPremium", "==", true)
+        .where("planPremium", "==", PLAN_TRIAL)
+        .get();
+    if (snap.empty) {
+        console.info("[desactivarTrialsVencidos] Sin trials activos.");
+        return;
+    }
+    const vencidos = snap.docs.filter((doc) => {
+        const expiry = doc.data().premiumExpiry?.toDate?.();
+        // Sin fecha no se puede afirmar que venció: se deja intacto y se avisa.
+        if (!expiry) {
+            console.warn(`[desactivarTrialsVencidos] Trial sin premiumExpiry. uid=${doc.id}`);
+            return false;
+        }
+        return expiry <= ahora;
+    });
+    if (vencidos.length === 0) {
+        console.info(`[desactivarTrialsVencidos] ${snap.size} trial(s) revisados, ninguno vencido.`);
+        return;
+    }
+    // Firestore admite 500 operaciones por batch.
+    const LOTE = 500;
+    let desactivados = 0;
+    for (let i = 0; i < vencidos.length; i += LOTE) {
+        const batch = db.batch();
+        for (const doc of vencidos.slice(i, i + LOTE)) {
+            batch.set(doc.ref, {
+                isPremium: false,
+                premiumVencidoEn: firestore_2.FieldValue.serverTimestamp(),
+                // La prueba se consumió: que no se le vuelva a ofrecer.
+                trialUsado: true,
+                // Los guardas anti-duplicado de `recordarExpiracionTrial` ya no
+                // aplican a este trial; dejarlos en true silenciaría los avisos si
+                // Play le concede otra prueba más adelante (oferta win-back).
+                trialNotif_3d: firestore_2.FieldValue.delete(),
+                trialNotif_2d: firestore_2.FieldValue.delete(),
+                trialNotif_1d: firestore_2.FieldValue.delete(),
+            }, { merge: true });
+        }
+        try {
+            await batch.commit();
+            desactivados += Math.min(LOTE, vencidos.length - i);
+        }
+        catch (e) {
+            console.error(`[desactivarTrialsVencidos] Error al commitear lote ${i / LOTE}: ${e}`);
+        }
+    }
+    console.info(`[desactivarTrialsVencidos] ${desactivados} trial(s) desactivados de ` +
+        `${snap.size} revisado(s).`);
 });
 // ── Cloud Function: Notificar logro al propio usuario ─────────────────────────
 /**

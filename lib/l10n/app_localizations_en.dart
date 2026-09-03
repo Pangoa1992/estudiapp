@@ -425,7 +425,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get save45pct => 'SAVE 45%';
 
   @override
-  String get tryFree => 'Try 7 days free';
+  String tryFree(int days) {
+    return 'Try $days days free';
+  }
 
   @override
   String get tryFreeSubtitle => 'Payment method required · Auto-renews';
